@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+build/
+
+# APK della demo Android: artefatti, non sorgenti (decine di MB)
+*.apk
+
+# Cartella di lavoro per l'estrazione dell'APK originale
+extract/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# macOS
+.DS_Store

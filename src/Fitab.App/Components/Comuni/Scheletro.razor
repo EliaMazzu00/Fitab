@@ -1,0 +1,17 @@
+@* Segnaposto durante il primo caricamento. Preferito allo spinner: mantiene
+   la forma della pagina, quindi il contenuto non "salta" quando arriva. *@
+
+@for (var i = 0; i < Quante; i++)
+{
+    <div class="scheda">
+        <div class="scheda__corpo">
+            <div class="scheletro scheletro--titolo"></div>
+            <div class="scheletro scheletro--riga" style="width:90%"></div>
+            <div class="scheletro scheletro--riga" style="width:60%;margin-bottom:0"></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Quante { get; set; } = 3;
+}

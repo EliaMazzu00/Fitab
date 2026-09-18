@@ -1,0 +1,175 @@
+@page "/circoli/{Codice:int}"
+@using Fitab.App.Servizi
+@inject FitabData Dati
+@inject AperturaEsterna Esterno
+@inject NavigationManager Nav
+
+<Intestazione Titolo="Circolo" Indietro="true" SuIndietro="@(() => Nav.NavigateTo("circoli"))" />
+
+<div class="contenuto">
+
+    @if (_circolo is null)
+    {
+        <Scheletro Quante="2" />
+    }
+    else
+    {
+        var c = _circolo;
+
+        <div class="scheda">
+            <div class="scheda__corpo">
+                <h2 style="font-size:var(--testo-xl);margin-bottom:var(--sp-2)">@c.Descrizione</h2>
+                @if (!string.IsNullOrWhiteSpace(c.Regione))
+                {
+                    <span class="chip chip--primario">@c.Regione</span>
+                }
+            </div>
+        </div>
+
+        @* --- Dove e quando si gioca: l'informazione che serve davvero --- *@
+        @if (!string.IsNullOrWhiteSpace(c.DoveGioca) || !string.IsNullOrWhiteSpace(c.QuandoGioca))
+        {
+            <section class="sezione">
+                <div class="sezione__testata">
+                    <span class="sezione__titolo">Dove e quando si gioca</span>
+                </div>
+                <div class="scheda"><div class="scheda__corpo">
+                    @if (!string.IsNullOrWhiteSpace(c.DoveGioca))
+                    {
+                        <div class="corpo-testo selezionabile">@c.DoveGioca</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(c.QuandoGioca))
+                    {
+                        <div class="corpo-testo selezionabile"
+                             style="margin-top:var(--sp-3);color:var(--testo-secondario)">
+                            @c.QuandoGioca
+                        </div>
+                    }
+                </div></div>
+            </section>
+        }
+
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">Contatti</span>
+            </div>
+
+            <div class="elenco">
+                @if (!string.IsNullOrWhiteSpace(c.IndirizzoCompleto))
+                {
+                    <button class="voce" @onclick="@(() => Esterno.CercaSuMappaAsync($"{c.IndirizzoCompleto}"))">
+                        <Icona Nome="luogo" Dimensione="22" />
+                        <span class="voce__testo">
+                            @c.IndirizzoCompleto
+                            <span class="voce__sotto">Apri nelle mappe</span>
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(c.Telefono))
+                {
+                    <button class="voce" @onclick="@(() => Esterno.ChiamaAsync(c.Telefono))">
+                        <Icona Nome="persona" Dimensione="22" />
+                        <span class="voce__testo">
+                            @c.Telefono
+                            <span class="voce__sotto">Telefono</span>
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(c.Cellulare))
+                {
+                    <button class="voce" @onclick="@(() => Esterno.ChiamaAsync(c.Cellulare))">
+                        <Icona Nome="persona" Dimensione="22" />
+                        <span class="voce__testo">
+                            @c.Cellulare
+                            <span class="voce__sotto">Cellulare@(string.IsNullOrWhiteSpace(c.Responsabile) ? "" : $" — {c.Responsabile}")</span>
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(c.Email))
+                {
+                    <button class="voce" @onclick="@(() => Esterno.ScriviEmailAsync(c.Email))">
+                        <Icona Nome="documento" Dimensione="22" />
+                        <span class="voce__testo">
+                            <span class="troncato" style="display:block">@c.Email</span>
+                            <span class="voce__sotto">Email</span>
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(c.SitoWeb))
+                {
+                    <button class="voce" @onclick="@(() => Esterno.ApriUrlAsync(Url(c.SitoWeb)))">
+                        <Icona Nome="cerca" Dimensione="22" />
+                        <span class="voce__testo">
+                            <span class="troncato" style="display:block">@c.SitoWeb</span>
+                            <span class="voce__sotto">Sito web</span>
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+            </div>
+        </section>
+
+        @if (!string.IsNullOrWhiteSpace(c.Presidente))
+        {
+            <section class="sezione">
+                <div class="sezione__testata">
+                    <span class="sezione__titolo">Consiglio</span>
+                </div>
+                <div class="scheda"><div class="scheda__corpo">
+                    <div class="testo-sm"><strong>Presidente:</strong> @c.Presidente</div>
+                    @if (!string.IsNullOrWhiteSpace(c.Responsabile))
+                    {
+                        <div class="testo-sm" style="margin-top:var(--sp-2)">
+                            <strong>Responsabile:</strong> @c.Responsabile
+                        </div>
+                    }
+                </div></div>
+            </section>
+        }
+
+        <button class="pulsante pulsante--secondario pulsante--largo" style="margin-top:var(--sp-5)"
+                @onclick="@(() => Nav.NavigateTo($"classifiche/1?circolo={c.Codice}"))">
+            <Icona Nome="medaglia" Dimensione="18" /> Classifica di questo circolo
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public int Codice { get; set; }
+
+    private Circolo? _circolo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _circolo = null;
+
+        try
+        {
+            // L'elenco completo e' in cache per 24 ore: evitiamo una chiamata
+            // di rete quando il circolo ci e' gia' noto.
+            var circoli = await Dati.CircoliAsync();
+            _circolo = circoli.Valore.FirstOrDefault(c => c.Codice == Codice);
+
+            if (_circolo is null)
+            {
+                var singolo = await Dati.CircoloAsync(Codice);
+                _circolo = singolo.Valore;
+            }
+        }
+        catch (Exception)
+        {
+            _circolo = null;
+        }
+    }
+
+    private static string Url(string sito) =>
+        sito.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? sito : $"https://{sito}";
+}

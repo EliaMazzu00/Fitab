@@ -1,0 +1,123 @@
+@page "/circoli"
+@inject FitabData Dati
+@inject NavigationManager Nav
+
+@* Elenco dei circoli affiliati. Nell'app attuale i circoli sono un'isola
+   raggiungibile solo dal menu laterale; qui si arriva anche dalla scheda
+   di un torneo e dal profilo. *@
+
+<Intestazione Titolo="Circoli affiliati" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("profilo"))" />
+
+<div class="contenuto">
+
+    <div class="ricerca">
+        <span class="ricerca__icona"><Icona Nome="cerca" Dimensione="20" /></span>
+        <input class="ricerca__input" type="search" placeholder="Cerca per nome, città o provincia"
+               value="@_ricerca" @oninput="SuRicerca" />
+    </div>
+
+    @if (_circoli is null)
+    {
+        <Scheletro Quante="6" />
+    }
+    else
+    {
+        <StatoDati Stato="_circoli" InCorso="_inAggiornamento" SuAggiorna="Aggiorna" />
+
+        @if (_filtrati.Count == 0)
+        {
+            <StatoVuoto Titolo="Nessun circolo trovato"
+                        Messaggio="Prova con un altro nome o un'altra città."
+                        NomeIcona="luogo" />
+        }
+        else
+        {
+            <div class="testo-xs testo-tenue" style="margin-bottom:var(--sp-2)">
+                @_filtrati.Count circoli
+            </div>
+
+            <div class="elenco">
+                @foreach (var c in _filtrati)
+                {
+                    <button class="voce" @onclick="@(() => Nav.NavigateTo($"circoli/{c.Codice}"))">
+                        <Icona Nome="luogo" Dimensione="22" />
+                        <span class="voce__testo">
+                            <span class="troncato" style="display:block">@c.Descrizione</span>
+                            @if (!string.IsNullOrWhiteSpace(c.Citta))
+                            {
+                                <span class="voce__sotto">
+                                    @c.Citta@(string.IsNullOrWhiteSpace(c.IdProvincia) ? "" : $" ({c.IdProvincia})")
+                                </span>
+                            }
+                        </span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private Cached<IReadOnlyList<Circolo>>? _circoli;
+    private IReadOnlyList<Circolo> _filtrati = [];
+    private string _ricerca = "";
+    private bool _inAggiornamento;
+
+    protected override async Task OnInitializedAsync() => await Carica();
+
+    private async Task Carica(bool forza = false)
+    {
+        try
+        {
+            _circoli = await Dati.CircoliAsync(c => InvokeAsync(() =>
+            {
+                _circoli = c;
+                Filtra();
+                StateHasChanged();
+            }), forza);
+        }
+        catch (Exception)
+        {
+            _circoli = new Cached<IReadOnlyList<Circolo>>([], DateTimeOffset.Now, false,
+                "Elenco non disponibile.");
+        }
+        finally
+        {
+            _inAggiornamento = false;
+            Filtra();
+        }
+    }
+
+    private void Filtra()
+    {
+        var tutti = _circoli?.Valore ?? [];
+
+        if (string.IsNullOrWhiteSpace(_ricerca))
+        {
+            _filtrati = tutti;
+            return;
+        }
+
+        var testo = _ricerca.Trim();
+        _filtrati = tutti.Where(c =>
+            c.Descrizione.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ||
+            c.Citta.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ||
+            c.IdProvincia.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ||
+            c.Regione.Contains(testo, StringComparison.CurrentCultureIgnoreCase)).ToList();
+    }
+
+    private void SuRicerca(ChangeEventArgs e)
+    {
+        _ricerca = e.Value?.ToString() ?? "";
+        Filtra();
+    }
+
+    private async Task Aggiorna()
+    {
+        _inAggiornamento = true;
+        await Carica(forza: true);
+        StateHasChanged();
+    }
+}

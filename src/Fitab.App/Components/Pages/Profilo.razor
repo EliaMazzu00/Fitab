@@ -1,0 +1,349 @@
+@page "/profilo"
+@using Fitab.App.Servizi
+@implements IDisposable
+@inject FitabData Dati
+@inject SessioneUtente Utente
+@inject ServizioTema Tema_
+@inject AperturaEsterna Esterno
+@inject NavigationManager Nav
+
+@* Area personale. L'accesso FITAB e' di sola consultazione: tessera e codice
+   fiscale servono solo a farsi riconoscere. Nell'app attuale il login e'
+   sepolto nel menu laterale pur sbloccando tutte le funzioni personali. *@
+
+<Intestazione Titolo="@(Utente.Autenticato ? "Il mio profilo" : "Accedi")"
+             Indietro="true" SuIndietro="@(() => Nav.NavigateTo("/"))" />
+
+<div class="contenuto">
+
+    @if (!Utente.Autenticato)
+    {
+        <div class="scheda">
+            <div class="scheda__corpo">
+                <LogoFitab Classe="logo-accesso" />
+
+                <h2 class="scheda__titolo">Accedi con la tua tessera</h2>
+                <p class="testo-sm testo-secondario">
+                    Ti servono il numero di tessera FITAB e il tuo codice fiscale.
+                    L'accesso serve solo a mostrarti la tua posizione in classifica,
+                    i tuoi punteggi e a evidenziare la tua coppia nei tornei live.
+                </p>
+
+                <div style="margin-top:var(--sp-4)">
+                    <label class="campo">
+                        <span class="campo__etichetta">Numero tessera</span>
+                        <input class="campo__input" type="text" inputmode="text"
+                               autocapitalize="characters" autocomplete="off"
+                               placeholder="es. CR007RN"
+                               value="@_tessera" @oninput="@(e => _tessera = e.Value?.ToString() ?? "")" />
+                    </label>
+
+                    <label class="campo">
+                        <span class="campo__etichetta">Codice fiscale</span>
+                        <input class="campo__input" type="text" inputmode="text"
+                               autocapitalize="characters" autocomplete="off"
+                               placeholder="16 caratteri"
+                               value="@_codiceFiscale"
+                               @oninput="@(e => _codiceFiscale = e.Value?.ToString() ?? "")"
+                               @onkeydown="SuTasto" />
+                    </label>
+                </div>
+
+                @if (_errore is not null)
+                {
+                    <div class="avviso avviso--errore">@_errore</div>
+                }
+
+                <button class="pulsante pulsante--largo" style="margin-top:var(--sp-4)"
+                        @onclick="Accedi" disabled="@_inCorso">
+                    @(_inCorso ? "Verifica in corso…" : "Accedi")
+                </button>
+
+                <p class="testo-xs testo-tenue" style="margin-top:var(--sp-4);margin-bottom:0">
+                    I dati restano sul tuo telefono, nell'archivio cifrato del sistema.
+                </p>
+            </div>
+        </div>
+
+        <button class="pulsante pulsante--secondario pulsante--largo" style="margin-top:var(--sp-4)"
+                @onclick="ApriInformativa">
+            <Icona Nome="documento" Dimensione="18" /> Informativa privacy
+        </button>
+    }
+    else
+    {
+        var t = Utente.Attuale!;
+
+        @* --- Tessera --- *@
+        <div class="tessera">
+            <img class="tessera__filigrana" src="img/fitab-logo-bianco.png" alt="" />
+            <img class="tessera__logo" src="img/fitab-logo-bianco.png" alt="FITAB-APS" />
+            <div class="tessera__ente">TESSERA SOCIO</div>
+            <div class="tessera__nome">@t.Nominativo</div>
+            <div class="tessera__riga">
+                <span>
+                    <span class="tessera__etichetta">Tessera</span>
+                    <span class="tessera__valore">@t.Tessera</span>
+                </span>
+                @if (!string.IsNullOrWhiteSpace(t.DataValidita))
+                {
+                    <span>
+                        <span class="tessera__etichetta">Valida fino al</span>
+                        <span class="tessera__valore">@t.DataValidita</span>
+                    </span>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(t.Associazione))
+            {
+                <div class="tessera__circolo">@t.Associazione</div>
+            }
+        </div>
+
+        @* --- Posizione in classifica --- *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">La mia posizione</span>
+            </div>
+
+            @if (_posizione is null)
+            {
+                <div class="scheda"><div class="scheda__corpo">
+                    <div class="scheletro scheletro--titolo"></div>
+                    <div class="scheletro scheletro--riga" style="width:70%;margin-bottom:0"></div>
+                </div></div>
+            }
+            else if (_posizione.Valore is null)
+            {
+                <StatoVuoto Titolo="Posizione non disponibile"
+                            Messaggio="Il server non ha restituito la tua posizione in classifica." />
+            }
+            else
+            {
+                var p = _posizione.Valore;
+                <div class="scheda">
+                    <div class="scheda__corpo">
+                        <div style="display:flex;gap:var(--sp-5);text-align:center">
+                            <div style="flex:1">
+                                <div class="testo-xs testo-tenue">POSIZIONE</div>
+                                <div class="numero-grande">@p.Posizione°</div>
+                                @if (p.DeltaPosizione != 0)
+                                {
+                                    <span class="delta @(p.DeltaPosizione > 0 ? "delta--su" : "delta--giu")">
+                                        @(p.DeltaPosizione > 0 ? "▲" : "▼")@Math.Abs(p.DeltaPosizione)
+                                        rispetto al @p.AnnoPrecedente
+                                    </span>
+                                }
+                            </div>
+                            <div style="flex:1">
+                                <div class="testo-xs testo-tenue">PUNTI @p.Anno</div>
+                                <div class="numero-grande">@p.Punti</div>
+                                @if (p.PuntiPrecedenti > 0)
+                                {
+                                    <div class="testo-xs testo-tenue">@p.PuntiPrecedenti nel @p.AnnoPrecedente</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </section>
+
+        @* --- Scorciatoie --- *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">I miei dati</span>
+            </div>
+
+            <div class="elenco">
+                <button class="voce" @onclick="@(() => Nav.NavigateTo("punteggi"))">
+                    <Icona Nome="medaglia" Dimensione="22" />
+                    <span class="voce__testo">I miei punteggi</span>
+                    <Icona Nome="avanti" Dimensione="18" />
+                </button>
+
+                @if (t.IdCircolo > 0)
+                {
+                    <button class="voce" @onclick="@(() => Nav.NavigateTo($"circoli/{t.IdCircolo}"))">
+                        <Icona Nome="luogo" Dimensione="22" />
+                        <span class="voce__testo">Il mio circolo</span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+
+                    <button class="voce" @onclick="@(() => Nav.NavigateTo($"classifiche/1?circolo={t.IdCircolo}"))">
+                        <Icona Nome="medaglia" Dimensione="22" />
+                        <span class="voce__testo">Classifica del mio circolo</span>
+                        <Icona Nome="avanti" Dimensione="18" />
+                    </button>
+                }
+            </div>
+        </section>
+
+
+    }
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Aspetto</span>
+        </div>
+
+        <div class="scheda">
+            <div class="scelta-tema">
+                @foreach (var t in Enum.GetValues<Tema>())
+                {
+                    <button class="scelta-tema__voce @(t == Tema_.Attuale ? "attiva" : "")"
+                            @onclick="@(() => CambiaTema(t))">
+                        <Icona Nome="@IconaTema(t)" Dimensione="20" />
+                        @ServizioTema.Descrizione(t)
+                    </button>
+                }
+            </div>
+            <p class="testo-xs testo-tenue" style="padding:0 var(--sp-4) var(--sp-3);margin:0">
+                Con "Automatico" l'app segue l'impostazione del telefono.
+            </p>
+        </div>
+    </section>
+
+    @* Fuori dal ramo autenticato: circoli, arbitri e contatti sono informazioni
+       pubbliche e devono restare raggiungibili anche senza accedere. *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">Federazione</span>
+            </div>
+            <div class="elenco">
+                <button class="voce" @onclick="@(() => Nav.NavigateTo("circoli"))">
+                    <Icona Nome="luogo" Dimensione="22" />
+                    <span class="voce__testo">Circoli affiliati</span>
+                    <Icona Nome="avanti" Dimensione="18" />
+                </button>
+                <button class="voce" @onclick="@(() => Nav.NavigateTo("arbitri"))">
+                    <Icona Nome="persona" Dimensione="22" />
+                    <span class="voce__testo">Albo arbitri</span>
+                    <Icona Nome="avanti" Dimensione="18" />
+                </button>
+                <button class="voce" @onclick="@(() => Nav.NavigateTo("contatti"))">
+                    <Icona Nome="documento" Dimensione="22" />
+                    <span class="voce__testo">Contatti</span>
+                    <Icona Nome="avanti" Dimensione="18" />
+                </button>
+            </div>
+        </section>
+
+    @if (Utente.Autenticato)
+    {
+        @* In fondo, come in qualsiasi area personale: uscire e' l'ultima cosa
+           che si cerca, non una voce in mezzo alle impostazioni. *@
+        <button class="pulsante pulsante--secondario pulsante--largo"
+                style="margin-top:var(--sp-5)" @onclick="Esci">
+            Esci
+        </button>
+    }
+</div>
+
+@code {
+    private string _tessera = "";
+    private string _codiceFiscale = "";
+    private string? _errore;
+    private bool _inCorso;
+
+    private Cached<MiaPosizione?>? _posizione;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Utente.Cambiata += SuCambioUtente;
+        await CaricaPosizione();
+    }
+
+    private void SuCambioUtente() => InvokeAsync(StateHasChanged);
+
+    private async Task CaricaPosizione()
+    {
+        if (!Utente.Autenticato) return;
+
+        try
+        {
+            _posizione = await Dati.MiaPosizioneAsync(
+                Utente.Tessera!, Utente.CodiceFiscale!,
+                c => InvokeAsync(() => { _posizione = c; StateHasChanged(); }));
+        }
+        catch (Exception)
+        {
+            _posizione = new Cached<MiaPosizione?>(null, DateTimeOffset.Now, false);
+        }
+    }
+
+    private async Task SuTasto(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Accedi();
+    }
+
+    private async Task Accedi()
+    {
+        _errore = null;
+
+        var tessera = _tessera.Trim().ToUpperInvariant();
+        var cf = _codiceFiscale.Trim().ToUpperInvariant();
+
+        if (tessera.Length == 0 || cf.Length == 0)
+        {
+            _errore = "Inserisci sia il numero di tessera sia il codice fiscale.";
+            return;
+        }
+
+        if (cf.Length != 16)
+        {
+            _errore = "Il codice fiscale deve essere di 16 caratteri.";
+            return;
+        }
+
+        _inCorso = true;
+
+        try
+        {
+            var esito = await Dati.Api.LoginAsync(tessera, cf);
+
+            if (!esito.Riuscito || esito.Tesserato is null)
+            {
+                _errore = string.IsNullOrWhiteSpace(esito.Messaggio)
+                    ? "Tessera o codice fiscale non validi."
+                    : esito.Messaggio;
+                return;
+            }
+
+            await Utente.AccediAsync(esito.Tesserato);
+            _tessera = _codiceFiscale = "";
+            await CaricaPosizione();
+        }
+        catch (Exception)
+        {
+            _errore = "Non riesco a contattare il server. Controlla la connessione.";
+        }
+        finally
+        {
+            _inCorso = false;
+        }
+    }
+
+    private void Esci()
+    {
+        Utente.Esci();
+        _posizione = null;
+    }
+
+    private async Task CambiaTema(Tema tema)
+    {
+        await Tema_.ImpostaAsync(tema);
+        StateHasChanged();
+    }
+
+    private static string IconaTema(Tema tema) => tema switch
+    {
+        Tema.Chiaro => "sole",
+        Tema.Scuro => "luna",
+        _ => "automatico"
+    };
+
+    private Task ApriInformativa() =>
+        Esterno.ApriUrlAsync("https://www.fitab.it/DocumentiFederazione/App/PrivacyApp.pdf");
+
+    public void Dispose() => Utente.Cambiata -= SuCambioUtente;
+}

@@ -1,0 +1,410 @@
+@page "/live/{Codice}"
+@using Fitab.App.Servizi
+@implements IAsyncDisposable
+@inject FitabData Dati
+@inject SessioneUtente Utente
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+@* "La mia serata": una sola schermata per tutto il torneo.
+
+   Nell'app attuale seguire una serata richiede tre livelli di navigazione
+   (elenco live -> elenco turni -> punti del turno) e nessun aggiornamento
+   automatico: per vedere i risultati di un tavolo appena caricato bisogna
+   uscire dalla pagina e rientrarci. Qui i turni sono chip, la tabella cambia
+   sotto senza navigare, e i dati si aggiornano da soli. *@
+
+<Intestazione Titolo="@(_torneo?.Descrizione ?? "Torneo live")" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("live"))" />
+
+@if (_torneo is not null)
+{
+    <div class="testata-live">
+        <div style="display:flex;align-items:center;gap:var(--sp-2)">
+            @if (_torneo.EDiOggi)
+            {
+                <span class="chip chip--live"><span class="chip__pallino"></span> IN CORSO</span>
+            }
+            else
+            {
+                <span class="chip">@_torneo.Data?.ToString("dd/MM/yyyy")</span>
+            }
+            @if (_torneo.Rilevanza != Rilevanza.Sconosciuta)
+            {
+                <span class="chip chip--primario">@_torneo.Rilevanza.Descrizione()</span>
+            }
+        </div>
+
+        <div class="testo-sm testo-forte" style="margin-top:var(--sp-2)">@_torneo.Circolo</div>
+
+        <div class="testata-live__dati">
+            <span>@_torneo.NumeroTavoli tavoli</span>
+            <span>@_torneo.TurniTotali turni</span>
+            @if (!string.IsNullOrWhiteSpace(_torneo.Arbitro))
+            {
+                <span class="troncato">arb. @_torneo.Arbitro</span>
+            }
+        </div>
+    </div>
+}
+
+@if (_turni.Count > 0)
+{
+    <div class="turni">
+        @foreach (var turno in _turni)
+        {
+            <button class="turno @(turno.Codice == _turnoScelto?.Codice ? "attivo" : "")"
+                    @onclick="@(() => CambiaTurno(turno))">
+                @turno.EtichettaBreve
+                @if (turno.SonoQui)
+                {
+                    <span class="turno__io" title="Stai giocando in questo turno"></span>
+                }
+            </button>
+        }
+    </div>
+}
+
+<div class="barra-live @(_errore is not null ? "barra-live--errore" : "")">
+    <span>
+        @if (_errore is not null)
+        {
+            @_errore
+            <text> Ultimi dati di @Trascorso.</text>
+        }
+        else if (_ultimoAggiornamento is null)
+        {
+            <text>In attesa dei risultati…</text>
+        }
+        else
+        {
+            <text>Aggiornato @Trascorso</text>
+        }
+    </span>
+
+    <button class="stato-dati__aggiorna" @onclick="AggiornaOra" disabled="@_inAggiornamento">
+        <Icona Nome="aggiorna" Dimensione="15" Classe="@(_inAggiornamento ? "gira" : null)" />
+        @(_inAggiornamento ? "Aggiorno…" : "Aggiorna")
+    </button>
+</div>
+
+<div class="contenuto">
+
+    @if (_caricamentoIniziale)
+    {
+        <Scheletro Quante="3" />
+    }
+    else if (_turni.Count == 0)
+    {
+        <StatoVuoto Titolo="Nessun turno disponibile"
+                    Messaggio="I turni compaiono quando l'arbitro avvia il torneo."
+                    NomeIcona="orologio" />
+    }
+    else if (_righe.Count == 0)
+    {
+        <StatoVuoto Titolo="Turno non ancora iniziato"
+                    Messaggio="Appena arrivano i primi risultati li vedrai qui, senza dover aggiornare."
+                    NomeIcona="tavolo" />
+    }
+    else
+    {
+        @* La propria posizione resta sempre visibile in cima *@
+        @if (_miaRiga is not null)
+        {
+            <div class="io-fissa">
+                <div class="io-fissa__etichetta">La tua posizione</div>
+                <div style="display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-1)">
+                    <span style="font-size:var(--testo-2xl);font-weight:var(--peso-forte);
+                                 line-height:1">
+                        @_miaRiga.Dati.Posizione°
+                    </span>
+                    @if (_miaRiga.DeltaPosizione != 0)
+                    {
+                        <span class="delta @(_miaRiga.InRisalita ? "delta--su" : "delta--giu")">
+                            <Icona Nome="@(_miaRiga.InRisalita ? "su" : "giu")" Dimensione="14" />
+                            @Math.Abs(_miaRiga.DeltaPosizione)
+                        </span>
+                    }
+                    <div style="flex:1;min-width:0">
+                        <div class="testo-sm">@Primo(_miaRiga.Dati)</div>
+                        @if (Secondo(_miaRiga.Dati) is { Length: > 0 } compagno)
+                        {
+                            <div class="testo-sm">@compagno</div>
+                        }
+                        <div style="display:flex;align-items:center;gap:var(--sp-2);
+                                    margin-top:3px;flex-wrap:wrap">
+                            <span class="tavolo tavolo--mio">
+                                <Icona Nome="tavolo" Dimensione="12" /> Tavolo @_miaRiga.Dati.NumTavolo
+                            </span>
+                            <span class="testo-xs testo-secondario">
+                                VP @_miaRiga.Dati.VP · MP @_miaRiga.Dati.MP
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_mioTavolo is not null)
+        {
+            <button class="interruttore-tavolo @(_soloMioTavolo ? "attivo" : "")"
+                    @onclick="@(() => _soloMioTavolo = !_soloMioTavolo)">
+                <Icona Nome="tavolo" Dimensione="18" />
+                @(_soloMioTavolo
+                    ? $"Mostro solo il tavolo {_mioTavolo} — tocca per vedere tutti"
+                    : $"Vedi solo il mio tavolo ({_mioTavolo})")
+            </button>
+        }
+
+        <div class="classifica">
+            <div class="classifica__intestazione">
+                <span>Pos</span>
+                <span>Coppia e tavolo</span>
+                <span style="text-align:right">VP</span>
+                <span style="text-align:right">MP</span>
+            </div>
+
+            @foreach (var riga in _righeVisibili)
+            {
+                @* La chiave include i valori: quando cambiano, Blazor ricrea
+                   l'elemento e l'animazione di evidenziazione riparte. *@
+                <div @key="(riga.Dati.Codice, riga.Dati.Posizione, riga.Dati.VP, riga.Dati.MP)"
+                     id="@IdRiga(riga)"
+                     class="riga-live @(riga.Dati.SonoIo ? "riga-live--io" : "") @(!riga.Dati.SonoIo && _mioTavolo == riga.Dati.NumTavolo ? "riga-live--mio-tavolo" : "") @(riga.Cambiata ? "riga-live--cambiata" : "")">
+
+                    <div class="riga-live__posizione">
+                        @riga.Dati.Posizione
+                        @if (riga.DeltaPosizione != 0)
+                        {
+                            <span class="delta @(riga.InRisalita ? "delta--su" : "delta--giu")">
+                                @(riga.InRisalita ? "▲" : "▼")@Math.Abs(riga.DeltaPosizione)
+                            </span>
+                        }
+                    </div>
+
+                    <div class="riga-live__coppia">
+                        @* Due righe invece della coppia su una sola: a larghezza
+                           telefono i nomi uniti dal trattino andavano a capo fino a
+                           quattro righe, rendendo la tabella imprevedibile. *@
+                        @* Niente troncamento sui nomi: in una classifica sapere
+                           chi e' la coppia e' il dato, non un dettaglio. Se un nome
+                           non ci sta va a capo. *@
+                        <div class="selezionabile">
+                            <div>
+                                @if (riga.Dati.SonoIo)
+                                {
+                                    <span class="distintivo-io">TU</span>
+                                }
+                                @Primo(riga.Dati)
+                            </div>
+                            @if (Secondo(riga.Dati) is { Length: > 0 } secondo)
+                            {
+                                <div>@secondo</div>
+                            }
+                        </div>
+                        <div style="margin-top:3px">
+                            <span class="tavolo @(_mioTavolo == riga.Dati.NumTavolo ? "tavolo--mio" : "")">
+                                <Icona Nome="tavolo" Dimensione="12" /> Tavolo @riga.Dati.NumTavolo
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="riga-live__vp">@riga.Dati.VP</div>
+                    <div class="riga-live__mp">@riga.Dati.MP</div>
+                </div>
+            }
+        </div>
+
+        <p class="testo-xs testo-tenue" style="margin-top:var(--sp-3);text-align:center">
+            VP = punti vittoria · MP = punti match
+        </p>
+    }
+</div>
+
+@if (_miaRiga is not null && _righe.Count > 8)
+{
+    <button class="vai-a-me" @onclick="VaiAMe">
+        <Icona Nome="persona" Dimensione="18" /> La mia posizione
+    </button>
+}
+
+@code {
+    [Parameter] public string Codice { get; set; } = "";
+
+    private PollingLive? _polling;
+    private DotNetObjectReference<TorneoLive>? _riferimento;
+    private string? _idVisibilita;
+
+    private LiveTorneo? _torneo;
+    private IReadOnlyList<LiveTurno> _turni = [];
+    private LiveTurno? _turnoScelto;
+    private IReadOnlyList<RigaLive> _righe = [];
+    private RigaLive? _miaRiga;
+
+    private bool _soloMioTavolo;
+
+    /// <summary>Tavolo del tesserato nel turno mostrato, se sta giocando qui.</summary>
+    private int? _mioTavolo => _miaRiga?.Dati.NumTavolo;
+
+    /// <summary>Righe da disegnare: tutte, o solo quelle del proprio tavolo.</summary>
+    private IReadOnlyList<RigaLive> _righeVisibili =>
+        _soloMioTavolo && _mioTavolo is { } tavolo
+            ? _righe.Where(r => r.Dati.NumTavolo == tavolo).ToList()
+            : _righe;
+
+    private DateTimeOffset? _ultimoAggiornamento;
+    private string? _errore;
+    private bool _caricamentoIniziale = true;
+    private bool _inAggiornamento;
+
+    private string Trascorso
+    {
+        get
+        {
+            if (_ultimoAggiornamento is null) return "—";
+            var e = DateTimeOffset.Now - _ultimoAggiornamento.Value;
+            if (e < TimeSpan.FromSeconds(10)) return "adesso";
+            if (e < TimeSpan.FromMinutes(1)) return $"{(int)e.TotalSeconds} secondi fa";
+            if (e < TimeSpan.FromHours(1)) return $"{(int)e.TotalMinutes} minuti fa";
+            return $"{(int)e.TotalHours} ore fa";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _polling = new PollingLive(Dati.Api);
+        _polling.Aggiornato += SuAggiornamento;
+
+        await CaricaTorneoETurni();
+        _caricamentoIniziale = false;
+    }
+
+    private async Task CaricaTorneoETurni()
+    {
+        try
+        {
+            var tornei = await Dati.LiveTorneiAsync(Utente.Tessera);
+            _torneo = tornei.Valore.FirstOrDefault(t => t.Codice == Codice);
+
+            var turni = await Dati.LiveTurniAsync(Codice, Utente.Tessera);
+            _turni = turni.Valore;
+
+            // Preselezione: il turno che sto giocando, altrimenti l'ultimo
+            // pubblicato, che e' quello che interessa a chi sta seguendo.
+            _turnoScelto = _turni.FirstOrDefault(t => t.SonoQui) ?? _turni.LastOrDefault();
+
+            if (_turnoScelto is not null) AvviaPolling();
+        }
+        catch (Exception)
+        {
+            _errore = "Impossibile caricare il torneo.";
+        }
+    }
+
+    private void AvviaPolling()
+    {
+        if (_polling is null || _turnoScelto is null) return;
+
+        _polling.Configura(Codice, _turnoScelto.Codice, _turnoScelto.Girone, Utente.Tessera);
+        _polling.Avvia();
+    }
+
+    private void CambiaTurno(LiveTurno turno)
+    {
+        if (turno.Codice == _turnoScelto?.Codice) return;
+
+        _turnoScelto = turno;
+        _righe = [];
+        _miaRiga = null;
+        _soloMioTavolo = false;
+        _ultimoAggiornamento = null;
+        _errore = null;
+
+        AvviaPolling();
+    }
+
+    private Task SuAggiornamento(EsitoLive esito) => InvokeAsync(() =>
+    {
+        _righe = esito.Righe;
+        _miaRiga = esito.Righe.FirstOrDefault(r => r.Dati.SonoIo);
+        _ultimoAggiornamento = esito.Momento;
+        _errore = esito.Errore;
+        _inAggiornamento = false;
+
+        StateHasChanged();
+    });
+
+    private async Task AggiornaOra()
+    {
+        if (_polling is null) return;
+
+        _inAggiornamento = true;
+        await _polling.AggiornaOra();
+    }
+
+    private async Task VaiAMe()
+    {
+        if (_miaRiga is null) return;
+        await JS.InvokeVoidAsync("fitab.scorriA", IdRiga(_miaRiga));
+    }
+
+    // Il backend fornisce i due giocatori sia uniti (DescrizioneCoppia) sia
+    // separati: usiamo i separati quando ci sono, con fallback sulla stringa unica.
+    private static string Primo(LiveRiga r) =>
+        !string.IsNullOrWhiteSpace(r.Giocatore1) ? r.Giocatore1 : r.DescrizioneCoppia;
+
+    private static string Secondo(LiveRiga r) =>
+        !string.IsNullOrWhiteSpace(r.Giocatore1) ? r.Giocatore2 : "";
+
+    private static string IdRiga(RigaLive riga) =>
+        "riga-" + riga.Dati.Codice.Replace("-", "");
+
+    protected override async Task OnAfterRenderAsync(bool primaVolta)
+    {
+        if (!primaVolta) return;
+
+        // Sospende il polling quando l'app passa in background: non ha senso
+        // interrogare il server di un torneo che nessuno sta guardando.
+        _riferimento = DotNetObjectReference.Create(this);
+        _idVisibilita = await JS.InvokeAsync<string>("fitab.osservaVisibilita", _riferimento);
+    }
+
+    [JSInvokable]
+    public void CambioVisibilita(bool visibile)
+    {
+        if (_polling is null) return;
+
+        if (visibile)
+        {
+            _polling.Riprendi();
+            _ = _polling.AggiornaOra();
+        }
+        else
+        {
+            _polling.Sospendi();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_polling is not null)
+        {
+            _polling.Aggiornato -= SuAggiornamento;
+            await _polling.DisposeAsync();
+        }
+
+        if (_idVisibilita is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("fitab.dimenticaVisibilita", _idVisibilita);
+            }
+            catch (JSDisconnectedException)
+            {
+                // La WebView e' gia' chiusa: nulla da sganciare.
+            }
+        }
+
+        _riferimento?.Dispose();
+    }
+}

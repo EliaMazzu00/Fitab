@@ -1,0 +1,355 @@
+@page "/tornei"
+@inject FitabData Dati
+@inject NavigationManager Nav
+
+@* Calendario tornei.
+
+   Rispetto all'app attuale i filtri non sono piu' dietro un pulsante che apre
+   un'altra pagina: stanno qui e agiscono all'istante. Regione e circolo non
+   arrivano dal calendario — il backend restituisce solo IdCircolo — quindi li
+   ricaviamo incrociando con l'elenco circoli, che e' in cache per 24 ore. *@
+
+<Intestazione Titolo="Tornei" />
+
+<div class="contenuto">
+
+    <div class="ricerca">
+        <span class="ricerca__icona"><Icona Nome="cerca" Dimensione="20" /></span>
+        <input class="ricerca__input" type="search" placeholder="Cerca per titolo, luogo o circolo"
+               value="@_ricerca" @oninput="SuRicerca" />
+    </div>
+
+    @* Uno sotto l'altro, non affiancati: a meta' larghezza voci come
+       "Prossimi 30 giorni" o "Emilia - Romagna" venivano tagliate. *@
+    <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-bottom:var(--sp-3)">
+        <select class="ricerca__input" style="padding-left:var(--sp-3)"
+                @onchange="CambiaPeriodo">
+            @foreach (var p in Enum.GetValues<Periodo>())
+            {
+                <option value="@p" selected="@(p == _periodo)">@Etichetta(p)</option>
+            }
+        </select>
+
+        <select class="ricerca__input" style="padding-left:var(--sp-3)"
+                @onchange="CambiaRegione">
+            <option value="">Tutte le regioni</option>
+            @foreach (var r in _regioni)
+            {
+                <option value="@r" selected="@(r == _regione)">@r</option>
+            }
+        </select>
+    </div>
+
+    <div class="filtri" style="display:flex;gap:var(--sp-2);overflow-x:auto;
+                               padding-bottom:var(--sp-2);margin-bottom:var(--sp-2)">
+        <button class="chip @(_rilevanza is null ? "chip--primario" : "")"
+                style="min-height:36px;cursor:pointer"
+                @onclick="@(() => FiltraPer(null))">Tutte le rilevanze</button>
+
+        @foreach (var r in _rilevanzeDisponibili)
+        {
+            <button class="chip @(_rilevanza == r ? "chip--primario" : "")"
+                    style="min-height:36px;cursor:pointer"
+                    @onclick="@(() => FiltraPer(r))">@r.Descrizione()</button>
+        }
+
+        <button class="chip @(_soloConLocandina ? "chip--primario" : "")"
+                style="min-height:36px;cursor:pointer"
+                @onclick="AlternaLocandina">
+            Con locandina
+        </button>
+    </div>
+
+    @if (FiltriAttivi > 0)
+    {
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    margin-bottom:var(--sp-3)">
+            <span class="testo-xs testo-tenue">
+                @_filtrati.Count tornei su @(_tornei?.Valore.Count ?? 0)
+            </span>
+            <button class="sezione__link" @onclick="AzzeraFiltri">Azzera filtri</button>
+        </div>
+    }
+
+    @if (_tornei is null)
+    {
+        <Scheletro Quante="5" />
+    }
+    else
+    {
+        <StatoDati Stato="_tornei" InCorso="_inAggiornamento" SuAggiorna="Aggiorna" />
+
+        @if (_filtrati.Count == 0)
+        {
+            <StatoVuoto Titolo="Nessun torneo trovato"
+                        Messaggio="Prova ad allargare il periodo o a togliere qualche filtro."
+                        NomeIcona="calendario" />
+        }
+        else
+        {
+            @foreach (var gruppo in _filtrati.GroupBy(t => Mese(t.DaData)))
+            {
+                <section class="sezione">
+                    <div class="sezione__testata">
+                        <span class="sezione__titolo" style="text-transform:capitalize">
+                            @gruppo.Key
+                        </span>
+                        <span class="testo-xs testo-tenue">@gruppo.Count()</span>
+                    </div>
+
+                    @foreach (var torneo in gruppo)
+                    {
+                        <button class="scheda scheda--cliccabile"
+                                @onclick="@(() => Nav.NavigateTo($"tornei/{torneo.Id.Anno}/{torneo.Id.Progressivo}"))">
+                            <div class="scheda__corpo" style="display:flex;gap:var(--sp-4)">
+                                <div style="text-align:center;min-width:52px">
+                                    <div class="testo-forte"
+                                         style="font-size:var(--testo-2xl);line-height:1">
+                                        @(torneo.DaData?.Day.ToString() ?? "–")
+                                    </div>
+                                    <div class="testo-xs testo-secondario">
+                                        @Giorno(torneo.DaData)
+                                    </div>
+                                </div>
+                                <div style="flex:1;min-width:0">
+                                    <div class="scheda__titolo troncato-2">@torneo.Titolo</div>
+
+                                    @if (!string.IsNullOrWhiteSpace(torneo.Luogo))
+                                    {
+                                        <div class="scheda__meta troncato">@torneo.Luogo</div>
+                                    }
+
+                                    @if (Circolo(torneo) is { } circolo)
+                                    {
+                                        <div class="testo-xs testo-tenue troncato">
+                                            @circolo.Descrizione
+                                        </div>
+                                    }
+
+                                    <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2);
+                                                flex-wrap:wrap">
+                                        @if (torneo.Rilevanza != Rilevanza.Sconosciuta)
+                                        {
+                                            <span class="chip chip--primario">
+                                                @torneo.Rilevanza.Descrizione()
+                                            </span>
+                                        }
+                                        @if (torneo.HaLocandina)
+                                        {
+                                            <span class="chip">
+                                                <Icona Nome="documento" Dimensione="13" /> Locandina
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    }
+                </section>
+            }
+        }
+    }
+</div>
+
+@code {
+    private enum Periodo { Tutti, SetteGiorni, TrentaGiorni, QuestoMese, TreMesi }
+
+    private Cached<IReadOnlyList<Torneo>>? _tornei;
+    private IReadOnlyList<Torneo> _filtrati = [];
+    private IReadOnlyList<Rilevanza> _rilevanzeDisponibili = [];
+    private IReadOnlyList<string> _regioni = [];
+
+    private Dictionary<int, Circolo> _circoli = [];
+
+    private string _ricerca = "";
+    private Rilevanza? _rilevanza;
+    private string _regione = "";
+    private Periodo _periodo = Periodo.Tutti;
+    private bool _soloConLocandina;
+    private bool _inAggiornamento;
+
+    private int FiltriAttivi =>
+        (string.IsNullOrWhiteSpace(_ricerca) ? 0 : 1) +
+        (_rilevanza is null ? 0 : 1) +
+        (string.IsNullOrEmpty(_regione) ? 0 : 1) +
+        (_periodo == Periodo.Tutti ? 0 : 1) +
+        (_soloConLocandina ? 1 : 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CaricaCircoli();
+        await Carica();
+    }
+
+    private async Task CaricaCircoli()
+    {
+        try
+        {
+            var circoli = await Dati.CircoliAsync();
+            _circoli = circoli.Valore.ToDictionary(c => c.Codice);
+
+            _regioni = circoli.Valore
+                .Select(c => c.Regione)
+                .Where(r => !string.IsNullOrWhiteSpace(r))
+                .Distinct()
+                .OrderBy(r => r, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            // Senza l'elenco circoli il filtro per regione resta vuoto,
+            // ma il calendario funziona lo stesso.
+            _circoli = [];
+        }
+    }
+
+    private Circolo? Circolo(Torneo t) =>
+        _circoli.TryGetValue(t.IdCircolo, out var c) ? c : null;
+
+    private async Task Carica(bool forza = false)
+    {
+        var oggi = DateOnly.FromDateTime(DateTime.Today);
+        try
+        {
+            _tornei = await Dati.CalendarioAsync(oggi, c => InvokeAsync(() =>
+            {
+                _tornei = c;
+                Filtra();
+                StateHasChanged();
+            }), forza);
+        }
+        catch (Exception)
+        {
+            // Nessuna copia locale e nessuna rete: resta lo stato vuoto.
+        }
+        finally
+        {
+            _inAggiornamento = false;
+            Filtra();
+        }
+    }
+
+    private void Filtra()
+    {
+        var tutti = _tornei?.Valore ?? [];
+
+        // Le rilevanze proposte sono solo quelle effettivamente presenti nei dati:
+        // niente filtri che non producono risultati.
+        _rilevanzeDisponibili = tutti
+            .Select(t => t.Rilevanza)
+            .Where(r => r != Rilevanza.Sconosciuta)
+            .Distinct()
+            .OrderBy(r => r.Descrizione())
+            .ToList();
+
+        IEnumerable<Torneo> query = tutti;
+
+        if (_rilevanza is { } r2)
+            query = query.Where(t => t.Rilevanza == r2);
+
+        if (_soloConLocandina)
+            query = query.Where(t => t.HaLocandina);
+
+        if (!string.IsNullOrEmpty(_regione))
+            query = query.Where(t => Circolo(t)?.Regione == _regione);
+
+        if (_periodo != Periodo.Tutti)
+        {
+            var oggi = DateOnly.FromDateTime(DateTime.Today);
+            var limite = _periodo switch
+            {
+                Periodo.SetteGiorni => oggi.AddDays(7),
+                Periodo.TrentaGiorni => oggi.AddDays(30),
+                Periodo.QuestoMese => new DateOnly(oggi.Year, oggi.Month,
+                                          DateTime.DaysInMonth(oggi.Year, oggi.Month)),
+                Periodo.TreMesi => oggi.AddMonths(3),
+                _ => DateOnly.MaxValue
+            };
+
+            query = query.Where(t => t.DaData is { } d && d <= limite);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_ricerca))
+        {
+            var testo = _ricerca.Trim();
+            query = query.Where(t =>
+                t.Titolo.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ||
+                t.Luogo.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ||
+                (Circolo(t)?.Descrizione.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
+                (Circolo(t)?.Citta.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ?? false));
+        }
+
+        _filtrati = query.OrderBy(t => t.DaData ?? DateOnly.MaxValue).ToList();
+    }
+
+    private void SuRicerca(ChangeEventArgs e)
+    {
+        _ricerca = e.Value?.ToString() ?? "";
+        Filtra();
+    }
+
+    private void FiltraPer(Rilevanza? r)
+    {
+        _rilevanza = r;
+        Filtra();
+    }
+
+    private void AlternaLocandina()
+    {
+        _soloConLocandina = !_soloConLocandina;
+        Filtra();
+    }
+
+    private void CambiaRegione(ChangeEventArgs e)
+    {
+        _regione = e.Value?.ToString() ?? "";
+        Filtra();
+    }
+
+    private void CambiaPeriodo(ChangeEventArgs e)
+    {
+        _periodo = Enum.TryParse<Periodo>(e.Value?.ToString(), out var p) ? p : Periodo.Tutti;
+        Filtra();
+    }
+
+    private void AzzeraFiltri()
+    {
+        _ricerca = "";
+        _rilevanza = null;
+        _regione = "";
+        _periodo = Periodo.Tutti;
+        _soloConLocandina = false;
+        Filtra();
+    }
+
+    private async Task Aggiorna()
+    {
+        _inAggiornamento = true;
+        await Carica(forza: true);
+        StateHasChanged();
+    }
+
+    private static string Etichetta(Periodo p) => p switch
+    {
+        Periodo.SetteGiorni => "Prossimi 7 giorni",
+        Periodo.TrentaGiorni => "Prossimi 30 giorni",
+        Periodo.QuestoMese => "Questo mese",
+        Periodo.TreMesi => "Prossimi 3 mesi",
+        _ => "Tutto il calendario"
+    };
+
+    private static string Mese(DateOnly? data)
+    {
+        if (data is null) return "Data da definire";
+
+        var mesi = new[] { "", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                           "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre" };
+
+        var d = data.Value;
+        return d.Year == DateTime.Today.Year ? mesi[d.Month] : $"{mesi[d.Month]} {d.Year}";
+    }
+
+    private static string Giorno(DateOnly? data) => data is null
+        ? ""
+        : new[] { "dom", "lun", "mar", "mer", "gio", "ven", "sab" }[(int)data.Value.DayOfWeek];
+}

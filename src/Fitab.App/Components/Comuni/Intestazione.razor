@@ -1,0 +1,64 @@
+@inject NavigationManager Nav
+
+@* Intestazione unica di tutta l'app.
+
+   Prima ce n'erano due: una barra testuale sulle pagine interne e una fascia
+   alta col marchio sulla home. Il risultato era un'altezza che cambiava da
+   schermata a schermata. Qui c'e' un solo componente, con un'altezza fissa
+   identica ovunque; cambia solo cosa ci sta dentro — titolo oppure marchio.
+
+   L'altezza comprende l'inset superiore di sistema (notch, isola dinamica):
+   su iOS env(safe-area-inset-top) vale davvero, su Android e' zero perche'
+   usciamo dall'edge-to-edge e la WebView parte gia' sotto la barra di stato. *@
+
+<header class="intestazione @(Marchio ? "intestazione--marchio" : "")">
+
+    @if (Marchio)
+    {
+        <MotivoSemi Classe="intestazione__semi" />
+    }
+
+    @if (Indietro)
+    {
+        <button class="intestazione__azione" @onclick="TornaIndietro" aria-label="Indietro">
+            <Icona Nome="indietro" />
+        </button>
+    }
+
+    @if (Marchio)
+    {
+        <img class="intestazione__logo" src="img/fitab-logo-bianco.png"
+             alt="FITAB-APS — Federazione Italiana Associate Burraco" />
+    }
+    else
+    {
+        <h1 class="intestazione__titolo">@Titolo</h1>
+    }
+
+    @if (Azioni is not null)
+    {
+        <div class="intestazione__azioni">@Azioni</div>
+    }
+</header>
+
+@code {
+    /// <summary>Titolo testuale. Ignorato quando <see cref="Marchio"/> e' attivo.</summary>
+    [Parameter] public string Titolo { get; set; } = "";
+
+    /// <summary>Mostra il marchio al posto del titolo. Riservato alla schermata d'ingresso.</summary>
+    [Parameter] public bool Marchio { get; set; }
+
+    /// <summary>Freccia di ritorno. Solo nelle pagine di dettaglio.</summary>
+    [Parameter] public bool Indietro { get; set; }
+
+    /// <summary>Pulsanti a destra.</summary>
+    [Parameter] public RenderFragment? Azioni { get; set; }
+
+    [Parameter] public EventCallback SuIndietro { get; set; }
+
+    private async Task TornaIndietro()
+    {
+        if (SuIndietro.HasDelegate) await SuIndietro.InvokeAsync();
+        else Nav.NavigateTo("/");
+    }
+}

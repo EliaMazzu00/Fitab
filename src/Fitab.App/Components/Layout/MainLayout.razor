@@ -1,0 +1,9 @@
+@inherits LayoutComponentBase
+
+@* Ogni pagina fornisce la propria BarraTitolo e il proprio div.contenuto:
+   diventano figli flex di .schermata, con la tab bar sempre ancorata in basso. *@
+
+<div class="schermata">
+    @Body
+    <BarraTab />
+</div>

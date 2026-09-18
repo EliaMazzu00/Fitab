@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colori di sistema: barra di stato, barra di navigazione, accenti nativi.
+     Erano rimasti il viola del template MAUI (#512BD4), che si vedeva come una
+     fascia viola dietro orologio e batteria. Qui c'e' il blu del marchio. -->
+<resources>
+    <color name="colorPrimary">#0055A3</color>
+    <color name="colorPrimaryDark">#003F7A</color>
+    <color name="colorAccent">#0055A3</color>
+
+    <!-- Fondo della finestra: coincide con la variabile "sfondo" del tema chiaro, cosi' non
+         si vede un lampo di colore diverso mentre la WebView si disegna. -->
+    <color name="windowBackground">#F4F5F6</color>
+</resources>

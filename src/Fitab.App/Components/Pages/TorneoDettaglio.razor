@@ -1,0 +1,140 @@
+@page "/tornei/{Anno:int}/{Progressivo:int}"
+@using Fitab.Core
+@using Fitab.App.Servizi
+@inject FitabData Dati
+@inject AperturaEsterna Esterno
+@inject NavigationManager Nav
+
+<Intestazione Titolo="Torneo" Indietro="true" SuIndietro="@(() => Nav.NavigateTo("tornei"))" />
+
+<div class="contenuto">
+
+    @if (_torneo is null)
+    {
+        <Scheletro Quante="2" />
+    }
+    else if (_torneo.Valore is null)
+    {
+        <StatoVuoto Titolo="Torneo non trovato" NomeIcona="calendario" />
+    }
+    else
+    {
+        var t = _torneo.Valore;
+
+        <div class="scheda">
+            <div class="scheda__corpo">
+                <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
+                    @if (t.Rilevanza != Rilevanza.Sconosciuta)
+                    {
+                        <span class="chip chip--primario">@t.Rilevanza.Descrizione()</span>
+                    }
+                    @if (t.EPassato)
+                    {
+                        <span class="chip">Concluso</span>
+                    }
+                </div>
+
+                <h2 style="font-size:var(--testo-xl);margin:var(--sp-3) 0">@t.Titolo</h2>
+
+                <div class="elenco" style="box-shadow:none;background:transparent">
+                    <div class="voce" style="cursor:default">
+                        <Icona Nome="calendario" Dimensione="22" />
+                        <span class="voce__testo">
+                            @Data(t)
+                            <span class="voce__sotto">Data del torneo</span>
+                        </span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(t.Luogo))
+                    {
+                        <button class="voce" @onclick="@(() => Esterno.CercaSuMappaAsync(t.Luogo))">
+                            <Icona Nome="luogo" Dimensione="22" />
+                            <span class="voce__testo">
+                                @t.Luogo
+                                <span class="voce__sotto">Apri nelle mappe</span>
+                            </span>
+                            <Icona Nome="avanti" Dimensione="18" />
+                        </button>
+                    }
+
+                    @if (_circolo is not null)
+                    {
+                        <button class="voce" @onclick="@(() => Nav.NavigateTo($"circoli/{t.IdCircolo}"))">
+                            <Icona Nome="persona" Dimensione="22" />
+                            <span class="voce__testo">
+                                @_circolo.Descrizione
+                                <span class="voce__sotto">Circolo organizzatore</span>
+                            </span>
+                            <Icona Nome="avanti" Dimensione="18" />
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        var descrizione = Testo.SenzaHtml(t.Messaggio);
+
+        @if (descrizione.Length > 0)
+        {
+            <section class="sezione">
+                <div class="sezione__testata">
+                    <span class="sezione__titolo">Informazioni</span>
+                </div>
+                <div class="scheda"><div class="scheda__corpo">
+                    <div class="corpo-testo selezionabile">@descrizione</div>
+                </div></div>
+            </section>
+        }
+
+        @if (t.HaLocandina)
+        {
+            <button class="pulsante pulsante--largo" style="margin-top:var(--sp-4)"
+                    @onclick="@(() => Esterno.ApriUrlAsync(Dati.Api.UrlLocandinaTorneo(t.Locandina!)))">
+                <Icona Nome="documento" Dimensione="20" /> Apri la locandina
+            </button>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Anno { get; set; }
+    [Parameter] public int Progressivo { get; set; }
+
+    private Cached<Torneo?>? _torneo;
+    private Circolo? _circolo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _torneo = null;
+        _circolo = null;
+
+        try
+        {
+            _torneo = await Dati.TorneoAsync(new ContenutoId(Anno, Progressivo),
+                c => InvokeAsync(() => { _torneo = c; StateHasChanged(); }));
+
+            // Il calendario porta solo l'id del circolo: il nome lo prendiamo
+            // dall'elenco circoli, che e' in cache per 24 ore.
+            if (_torneo?.Valore is { IdCircolo: > 0 } t)
+            {
+                var circoli = await Dati.CircoliAsync();
+                _circolo = circoli.Valore.FirstOrDefault(c => c.Codice == t.IdCircolo);
+            }
+        }
+        catch (Exception)
+        {
+            _torneo ??= new Cached<Torneo?>(null, DateTimeOffset.Now, false);
+        }
+    }
+
+    private static string Data(Torneo t)
+    {
+        if (t.DaData is null) return t.DataEvento;
+
+        var da = t.DaData.Value;
+        if (t.AData is { } a && a != da)
+            return $"dal {da:dd/MM/yyyy} al {a:dd/MM/yyyy}";
+
+        return da.ToString("dddd d MMMM yyyy");
+    }
+}

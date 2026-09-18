@@ -1,0 +1,28 @@
+<div class="stato-vuoto">
+    @if (!string.IsNullOrEmpty(NomeIcona))
+    {
+        <div class="testo-tenue" style="margin-bottom:var(--sp-3)">
+            <Icona Nome="@NomeIcona" Dimensione="40" />
+        </div>
+    }
+
+    <div class="stato-vuoto__titolo">@Titolo</div>
+
+    @if (!string.IsNullOrEmpty(Messaggio))
+    {
+        <p class="testo-sm">@Messaggio</p>
+    }
+
+    @ChildContent
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Titolo { get; set; } = "";
+
+    [Parameter] public string? Messaggio { get; set; }
+
+    /// <summary>Nome dell'icona da mostrare sopra il titolo. Vedi <see cref="Icona"/>.</summary>
+    [Parameter] public string? NomeIcona { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

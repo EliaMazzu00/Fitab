@@ -1,0 +1,222 @@
+@page "/classifiche/{Tipo:int}"
+@using Fitab.App.Servizi
+@inject FitabData Dati
+@inject SessioneUtente Utente
+@inject NavigationManager Nav
+
+@* Classifica generale o per anno.
+
+   Vincolo che detta il comportamento di questa pagina: la graduatoria federale
+   non filtrata costa ~24 secondi per pagina da 50 lato server, mentre filtrata
+   per circolo risponde in meno di un secondo (API-FITAB.md §9). Quindi:
+   - la prima apertura avvisa dell'attesa invece di lasciare l'utente davanti
+     a uno spinner muto;
+   - il risultato resta in cache 24 ore, cosi' le volte successive e' immediata;
+   - le pagine successive vengono precaricate in background mentre si legge;
+   - il filtro per circolo e' proposto in evidenza, perche' e' la via veloce. *@
+
+<Intestazione Titolo="@Titolo" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("classifiche"))" />
+
+<div class="contenuto">
+
+    <div class="ricerca">
+        <select class="ricerca__input" style="padding-left:var(--sp-3)"
+                @onchange="CambiaCircolo">
+            <option value="">Tutta Italia (più lenta)</option>
+            @foreach (var c in _circoli)
+            {
+                <option value="@c.Codice" selected="@(c.Codice == Circolo)">@c.Descrizione</option>
+            }
+        </select>
+    </div>
+
+    @if (_voci.Count == 0 && _inCaricamento)
+    {
+        @if (Circolo is null)
+        {
+            <div class="nota-lenta">
+                <span class="testo-primario"><Icona Nome="orologio" Dimensione="20" /></span>
+                <span>
+                    La graduatoria nazionale richiede circa <strong>mezzo minuto</strong>
+                    la prima volta. Da qui in avanti si aprirà subito.
+                    Per un risultato immediato, scegli un circolo qui sopra.
+                </span>
+            </div>
+        }
+        <Scheletro Quante="6" />
+    }
+    else if (_voci.Count == 0)
+    {
+        <StatoVuoto Titolo="Classifica non disponibile"
+                    Messaggio="@(_errore ?? "Nessun dato per questa selezione.")"
+                    NomeIcona="medaglia" />
+    }
+    else
+    {
+        <StatoDati Stato="_stato" InCorso="_inCaricamento" SuAggiorna="Ricarica" />
+
+        <div class="classifica">
+            @foreach (var voce in _voci)
+            {
+                var sonoIo = _miaTessera is not null && voce.Tessera == _miaTessera;
+
+                <div class="riga-classifica @(sonoIo ? "riga-classifica--io" : "")">
+                    <div class="riga-classifica__pos">@voce.Posizione</div>
+                    <div>
+                        <div class="riga-classifica__nome selezionabile">@voce.CognomeNome</div>
+                        <div class="testo-xs testo-tenue troncato">
+                            @voce.Circolo
+                            @if (!string.IsNullOrWhiteSpace(voce.Provincia))
+                            {
+                                <text> · @voce.Provincia</text>
+                            }
+                        </div>
+                    </div>
+                    <div>
+                        <div class="riga-classifica__punti">@voce.Punti</div>
+                        <div class="testo-xs testo-tenue" style="text-align:right">
+                            @voce.Categoria.Descrizione()
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_altrePagine)
+        {
+            <button class="pulsante pulsante--secondario pulsante--largo"
+                    style="margin-top:var(--sp-4)"
+                    @onclick="CaricaAltre" disabled="@_inCaricamento">
+                @if (_inCaricamento)
+                {
+                    <text>Carico…</text>
+                }
+                else
+                {
+                    <text>Mostra altri 50</text>
+                }
+            </button>
+
+            @if (Circolo is null)
+            {
+                <p class="testo-xs testo-tenue" style="margin-top:var(--sp-2);text-align:center">
+                    Le prossime pagine sono già in preparazione in background.
+                </p>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Tipo { get; set; }
+
+    [Parameter, SupplyParameterFromQuery] public int? Circolo { get; set; }
+
+    [Parameter, SupplyParameterFromQuery] public string? TitoloQuery { get; set; }
+
+    private readonly List<VoceClassifica> _voci = [];
+    private IReadOnlyList<Circolo> _circoli = [];
+    private IStatoDati? _stato;
+    private string? _errore;
+    private string? _miaTessera;
+    private bool _inCaricamento;
+    private bool _altrePagine = true;
+    private int _prossimaPosizione = 1;
+    private int _tipoCaricato = -1;
+    private int? _circoloCaricato;
+
+    private string Titolo => Tipo == 1 ? "Classifica generale" : $"Classifica {Tipo}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Ricarica solo se e' cambiata davvero la selezione.
+        if (_tipoCaricato == Tipo && _circoloCaricato == Circolo) return;
+
+        _tipoCaricato = Tipo;
+        _circoloCaricato = Circolo;
+        _miaTessera = Utente.Tessera;
+
+        _voci.Clear();
+        _prossimaPosizione = 1;
+        _altrePagine = true;
+        _errore = null;
+        _stato = null;
+
+        if (_circoli.Count == 0) await CaricaCircoli();
+        await CaricaPagina();
+
+        // Il precaricamento ha senso solo sulla nazionale, che e' quella lenta.
+        if (Circolo is null) Dati.PrecaricaClassifica(Tipo);
+    }
+
+    private async Task CaricaCircoli()
+    {
+        try
+        {
+            var circoli = await Dati.CircoliAsync();
+            _circoli = circoli.Valore;
+        }
+        catch (Exception)
+        {
+            _circoli = [];
+        }
+    }
+
+    private async Task CaricaPagina(bool forza = false)
+    {
+        _inCaricamento = true;
+        StateHasChanged();
+
+        try
+        {
+            var pagina = await Dati.ClassificaAsync(
+                Tipo, _prossimaPosizione, Circolo, forza: forza);
+
+            _stato = pagina;
+
+            if (pagina.Valore.Count == 0)
+            {
+                _altrePagine = false;
+            }
+            else
+            {
+                _voci.AddRange(pagina.Valore);
+                _prossimaPosizione += pagina.Valore.Count;
+
+                // Meno di una pagina piena significa che siamo in fondo.
+                _altrePagine = pagina.Valore.Count >= 50;
+            }
+        }
+        catch (Exception)
+        {
+            _errore = "Non riesco a caricare la classifica. Controlla la connessione.";
+            _altrePagine = false;
+        }
+        finally
+        {
+            _inCaricamento = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task CaricaAltre() => CaricaPagina();
+
+    private async Task Ricarica()
+    {
+        _voci.Clear();
+        _prossimaPosizione = 1;
+        _altrePagine = true;
+        await CaricaPagina(forza: true);
+    }
+
+    private void CambiaCircolo(ChangeEventArgs e)
+    {
+        var valore = e.Value?.ToString();
+        var url = string.IsNullOrEmpty(valore)
+            ? $"classifiche/{Tipo}"
+            : $"classifiche/{Tipo}?circolo={valore}";
+
+        Nav.NavigateTo(url);
+    }
+}

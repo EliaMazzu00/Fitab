@@ -1,0 +1,1217 @@
+/* Base e componenti Fitab 2.0. Nessuna libreria: tutto il CSS e' nostro,
+   costruito sui token di tokens.css. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font);
+    font-size: var(--testo-base);
+    line-height: 1.5;
+    color: var(--testo);
+    background: var(--sfondo);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#app { height: 100%; }
+
+h1, h2, h3, h4 { margin: 0; font-weight: var(--peso-forte); line-height: 1.25; }
+p { margin: 0 0 var(--sp-3); }
+ul { margin: 0; padding: 0; list-style: none; }
+
+a { color: var(--primario); text-decoration: none; }
+
+/* Il testo dei dati e' selezionabile, la crominatura dell'interfaccia no:
+   evita selezioni accidentali durante lo scorrimento. */
+.schermata, .barra-tab, .intestazione { user-select: none; }
+.selezionabile { user-select: text; }
+
+/* ------------------------------------------------------------------ Struttura */
+
+/* Colonna che tiene insieme intestazione, contenuto scorrevole e tab bar.
+   Senza altezza piena qui, il contenuto non ha spazio in cui scorrere. */
+.schermata {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* ---------------------------------------------------------- Intestazione */
+
+/* Una sola intestazione per tutta l'app, di altezza fissa. L'inset superiore
+   e' dentro l'altezza, non in aggiunta, cosi' la fascia resta identica su
+   dispositivi con e senza notch. */
+.intestazione {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    box-sizing: content-box;
+    height: var(--barra-titolo);
+    padding-top: env(safe-area-inset-top);
+    padding-inline: var(--sp-2);
+    background: var(--titolo-sfondo);
+    color: var(--titolo-testo);
+    box-shadow: var(--ombra);
+    overflow: hidden;
+}
+
+/* Variante con il marchio: stessa altezza, fondo istituzionale in entrambi i
+   temi perche' il logo esiste solo in bianco e a colori. */
+.intestazione--marchio {
+    background: linear-gradient(135deg, #003f7a, #0055a3);
+    color: #fff;
+    justify-content: center;
+}
+
+.intestazione__semi {
+    position: absolute;
+    inset: 0;
+    opacity: .10;
+    pointer-events: none;
+}
+
+.intestazione__titolo {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding-inline: var(--sp-2);
+    font-size: var(--testo-xl);
+    font-weight: var(--peso-forte);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Il logo si adatta all'altezza disponibile e non la determina: e' il motivo
+   per cui prima la stella veniva tagliata in cima. */
+.intestazione__logo {
+    position: relative;
+    z-index: 1;
+    max-height: calc(var(--barra-titolo) - var(--sp-4));
+    max-width: 62vw;
+    width: auto;
+    object-fit: contain;
+}
+
+.intestazione__azione,
+.intestazione__azioni > button {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: var(--raggio-pill);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.intestazione--marchio .intestazione__azioni {
+    position: absolute;
+    right: var(--sp-2);
+    top: env(safe-area-inset-top);
+    height: var(--barra-titolo);
+    display: flex;
+    align-items: center;
+}
+
+.intestazione__azione:active,
+.intestazione__azioni > button:active { background: rgba(127, 127, 127, .25); }
+
+.intestazione--marchio .intestazione__azione:active,
+.intestazione--marchio .intestazione__azioni > button:active {
+    background: rgba(255, 255, 255, .2);
+}
+
+.contenuto {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--sp-4);
+    padding-bottom: var(--sp-6);
+}
+
+/* ------------------------------------------------------------------- Tab bar */
+
+.barra-tab {
+    display: flex;
+    background: var(--superficie);
+    border-top: 1px solid var(--bordo);
+    padding-bottom: env(safe-area-inset-bottom);
+    position: relative;
+    z-index: 2;
+}
+
+.barra-tab__voce {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: var(--barra-tab);
+    padding: var(--sp-2) var(--sp-1);
+    border: 0;
+    background: transparent;
+    color: var(--testo-tenue);
+    font-family: inherit;
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-medio);
+    cursor: pointer;
+    transition: color var(--transizione);
+}
+
+/* L'etichetta sotto l'icona resta sempre visibile: per il nostro pubblico
+   le icone da sole non sono un'informazione sufficiente. */
+.barra-tab__voce.attiva { color: var(--primario); }
+.barra-tab__voce:active { background: var(--superficie-alt); }
+
+.barra-tab__punto {
+    position: absolute;
+    top: 6px;
+    margin-left: 22px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--rosso);
+    border: 2px solid var(--superficie);
+}
+
+/* -------------------------------------------------------------------- Schede */
+
+.scheda {
+    background: var(--superficie);
+    border-radius: var(--raggio);
+    box-shadow: var(--ombra);
+    overflow: hidden;
+}
+
+.scheda + .scheda { margin-top: var(--sp-3); }
+
+.scheda--cliccabile {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: transform var(--transizione);
+}
+
+.scheda--cliccabile:active { transform: scale(.985); }
+
+.scheda__corpo { padding: var(--sp-4); }
+
+.scheda__titolo {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+    margin-bottom: var(--sp-1);
+}
+
+.scheda__meta {
+    font-size: var(--testo-sm);
+    color: var(--testo-secondario);
+}
+
+/* Barretta verticale colorata a sinistra, ripresa dall'app attuale */
+.scheda--barrata { border-left: 4px solid var(--primario); }
+
+/* ------------------------------------------------------------------- Sezioni */
+
+.sezione + .sezione { margin-top: var(--sp-5); }
+
+.sezione__testata {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+}
+
+.sezione__titolo {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+}
+
+.sezione__link {
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    color: var(--primario);
+    background: none;
+    border: 0;
+    padding: var(--sp-1);
+    cursor: pointer;
+}
+
+/* --------------------------------------------------------------------- Testi */
+
+.testo-sm { font-size: var(--testo-sm); }
+.testo-xs { font-size: var(--testo-xs); }
+.testo-secondario { color: var(--testo-secondario); }
+.testo-tenue { color: var(--testo-tenue); }
+.testo-forte { font-weight: var(--peso-forte); }
+.testo-primario { color: var(--primario); }
+
+.troncato {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.troncato-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* --------------------------------------------------------------------- Chip */
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--raggio-pill);
+    background: var(--superficie-alt);
+    border: 1px solid var(--bordo);
+    color: var(--testo-secondario);
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-medio);
+    white-space: nowrap;
+}
+
+.chip--primario {
+    background: var(--primario-tenue);
+    border-color: transparent;
+    color: var(--primario-scuro);
+}
+
+.chip--live {
+    background: var(--rosso-tenue);
+    border-color: transparent;
+    color: var(--rosso);
+    font-weight: var(--peso-forte);
+}
+
+.chip__pallino {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulsa 1.6s ease-in-out infinite;
+}
+
+@keyframes pulsa {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chip__pallino { animation: none; }
+    .scheda--cliccabile:active { transform: none; }
+}
+
+/* ------------------------------------------------------------------ Pulsanti */
+
+.pulsante {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: var(--tocco-min);
+    padding: 0 var(--sp-5);
+    border: 0;
+    border-radius: var(--raggio-sm);
+    background: var(--primario);
+    color: var(--su-primario);
+    font-family: inherit;
+    font-size: var(--testo-base);
+    font-weight: var(--peso-medio);
+    cursor: pointer;
+}
+
+.pulsante:active { background: var(--primario-scuro); }
+.pulsante:disabled { opacity: .5; cursor: default; }
+
+.pulsante--secondario {
+    background: var(--superficie);
+    color: var(--primario);
+    border: 1px solid var(--bordo-forte);
+}
+
+.pulsante--largo { width: 100%; }
+
+/* ------------------------------------------------------- Stato e caricamento */
+
+.stato-vuoto {
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+    color: var(--testo-secondario);
+}
+
+.stato-vuoto__titolo {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+    color: var(--testo);
+    margin-bottom: var(--sp-2);
+}
+
+.scheletro {
+    background: linear-gradient(90deg,
+        var(--bordo) 25%, var(--superficie-alt) 50%, var(--bordo) 75%);
+    background-size: 200% 100%;
+    animation: scorri 1.4s linear infinite;
+    border-radius: var(--raggio-sm);
+}
+
+@keyframes scorri {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scheletro { animation: none; }
+}
+
+.scheletro--riga { height: 1em; margin-bottom: var(--sp-2); }
+.scheletro--titolo { height: 1.4em; width: 70%; margin-bottom: var(--sp-3); }
+.scheletro--scheda { height: 92px; margin-bottom: var(--sp-3); }
+
+/* Barra di stato dati: "aggiornato 2 min fa" + eventuale errore */
+.stato-dati {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-1) var(--sp-3);
+    font-size: var(--testo-xs);
+    color: var(--testo-tenue);
+}
+
+.stato-dati--errore { color: var(--ambra); }
+
+.stato-dati__aggiorna {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    min-height: 32px;
+    padding: 0 var(--sp-2);
+    border: 0;
+    background: transparent;
+    color: var(--primario);
+    font-family: inherit;
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-medio);
+    cursor: pointer;
+}
+
+.gira { animation: gira 900ms linear infinite; }
+
+@keyframes gira {
+    to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------- Errore Blazor */
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: var(--sp-3) var(--sp-4);
+    background: #fff3cd;
+    color: #664d03;
+    box-shadow: var(--ombra-alta);
+}
+
+#blazor-error-ui .dismiss {
+    float: right;
+    cursor: pointer;
+}
+
+/* ==================================================================== Live */
+
+/* Striscia dei turni. Nell'app attuale i turni sono una pagina separata:
+   qui sono chip, si tocca e la tabella cambia sotto senza navigare. */
+.turni {
+    display: flex;
+    gap: var(--sp-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--superficie);
+    border-bottom: 1px solid var(--bordo);
+}
+
+.turni::-webkit-scrollbar { display: none; }
+
+.turno {
+    position: relative;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 var(--sp-4);
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-pill);
+    background: var(--superficie);
+    color: var(--testo-secondario);
+    font-family: inherit;
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--transizione), color var(--transizione);
+}
+
+.turno.attivo {
+    background: var(--primario);
+    border-color: var(--primario);
+    color: var(--su-primario);
+    font-weight: var(--peso-forte);
+}
+
+/* Pallino sul turno in cui sta giocando il tesserato (campo SonoQui) */
+.turno__io {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--rosso);
+}
+
+.turno.attivo .turno__io { background: var(--su-primario); }
+
+/* --- Testata del torneo --- */
+
+.testata-live {
+    padding: var(--sp-4);
+    background: var(--superficie);
+    border-bottom: 1px solid var(--bordo);
+}
+
+.testata-live__dati {
+    display: flex;
+    gap: var(--sp-5);
+    margin-top: var(--sp-3);
+    font-size: var(--testo-xs);
+    color: var(--testo-secondario);
+}
+
+/* --- Riga fissa con la propria posizione --- */
+
+.io-fissa {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--primario-tenue);
+    border-bottom: 2px solid var(--primario);
+}
+
+.io-fissa__etichetta {
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-forte);
+    color: var(--primario-scuro);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+/* --- Tabella classifica --- */
+
+.classifica {
+    background: var(--superficie);
+    border-radius: var(--raggio);
+    overflow: hidden;
+    box-shadow: var(--ombra);
+}
+
+.classifica__intestazione,
+.riga-live {
+    display: grid;
+    grid-template-columns: 34px 1fr 38px 50px;
+    align-items: start;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-2);
+}
+
+.classifica__intestazione {
+    padding-block: var(--sp-2);
+    background: var(--superficie-alt);
+    border-bottom: 1px solid var(--bordo);
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-forte);
+    color: var(--testo-tenue);
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.riga-live { border-bottom: 1px solid var(--bordo); }
+.riga-live:last-child { border-bottom: 0; }
+
+/* La propria coppia: fondo tenue e barretta verde, deve saltare all'occhio
+   mentre si scorre una tabella di trenta righe. */
+.riga-live--io {
+    background: var(--primario-tenue);
+    box-shadow: inset 3px 0 0 var(--primario);
+}
+
+/* Lampeggio breve quando i valori della riga cambiano. La riga viene ricreata
+   (chiave su posizione/VP/MP) e l'animazione riparte da sola. */
+.riga-live--cambiata { animation: evidenzia 2.4s ease-out; }
+
+@keyframes evidenzia {
+    0% { background-color: var(--evidenzia); }
+    100% { background-color: transparent; }
+}
+
+.riga-live--io.riga-live--cambiata { animation-name: evidenzia-io; }
+
+@keyframes evidenzia-io {
+    0% { background-color: var(--evidenzia); }
+    100% { background-color: var(--primario-tenue); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .riga-live--cambiata,
+    .riga-live--io.riga-live--cambiata { animation: none; }
+}
+
+.riga-live__posizione {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+}
+
+.riga-live__coppia {
+    min-width: 0;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    line-height: 1.3;
+}
+
+.riga-live__tavolo {
+    font-size: var(--testo-xs);
+    color: var(--testo-tenue);
+}
+
+.riga-live__vp,
+.riga-live__mp {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.riga-live__vp {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+}
+
+.riga-live__mp {
+    font-size: var(--testo-sm);
+    color: var(--testo-secondario);
+}
+
+/* Variazione di posizione rispetto all'aggiornamento precedente:
+   e' l'informazione per cui si apre l'app durante una serata. */
+.delta {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: var(--peso-forte);
+    line-height: 1;
+}
+
+.delta--su { color: var(--positivo); }
+.delta--giu { color: var(--negativo); }
+
+/* Barra di stato del live: ultimo aggiornamento + azione manuale */
+.barra-live {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    background: var(--sfondo);
+    font-size: var(--testo-xs);
+    color: var(--testo-tenue);
+}
+
+.barra-live--errore { color: var(--ambra); }
+
+.vai-a-me {
+    position: fixed;
+    right: var(--sp-4);
+    bottom: calc(var(--barra-tab) + env(safe-area-inset-bottom) + var(--sp-4));
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: 44px;
+    padding: 0 var(--sp-4);
+    border: 0;
+    border-radius: var(--raggio-pill);
+    background: var(--primario);
+    color: var(--su-primario);
+    font-family: inherit;
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-forte);
+    box-shadow: var(--ombra-alta);
+    cursor: pointer;
+}
+
+/* ================================================================== Moduli */
+
+/* --- Campi di inserimento --- */
+
+.campo { display: block; margin-bottom: var(--sp-4); }
+
+.campo__etichetta {
+    display: block;
+    margin-bottom: var(--sp-1);
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    color: var(--testo-secondario);
+}
+
+.campo__input {
+    width: 100%;
+    min-height: var(--tocco-min);
+    padding: 0 var(--sp-3);
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-sm);
+    background: var(--superficie);
+    color: var(--testo);
+    font-family: inherit;
+    font-size: var(--testo-base);
+}
+
+.campo__input:focus {
+    outline: 2px solid var(--primario);
+    outline-offset: -1px;
+    border-color: var(--primario);
+}
+
+/* --- Avvisi --- */
+
+.avviso {
+    margin-top: var(--sp-3);
+    padding: var(--sp-3);
+    border-radius: var(--raggio-sm);
+    font-size: var(--testo-sm);
+}
+
+.avviso--errore { background: var(--rosso-tenue); color: var(--rosso); }
+
+/* --- Tessera del socio --- */
+
+.tessera__nome {
+    margin: var(--sp-2) 0 var(--sp-4);
+    font-size: var(--testo-xl);
+    font-weight: var(--peso-forte);
+    line-height: 1.2;
+}
+
+.tessera__riga {
+    display: flex;
+    gap: var(--sp-5);
+    flex-wrap: wrap;
+}
+
+.tessera__etichetta {
+    display: block;
+    font-size: 11px;
+    letter-spacing: .08em;
+    opacity: .8;
+}
+
+.tessera__valore {
+    font-size: var(--testo-base);
+    font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+}
+
+.tessera__circolo {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-3);
+    border-top: 1px solid rgba(255, 255, 255, .25);
+    font-size: var(--testo-sm);
+}
+
+/* --- Elenco di voci navigabili --- */
+
+.elenco {
+    background: var(--superficie);
+    border-radius: var(--raggio);
+    overflow: hidden;
+    box-shadow: var(--ombra);
+}
+
+.voce {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    min-height: 56px;
+    padding: var(--sp-3) var(--sp-4);
+    border: 0;
+    border-bottom: 1px solid var(--bordo);
+    background: transparent;
+    color: var(--testo);
+    font-family: inherit;
+    font-size: var(--testo-base);
+    text-align: left;
+    cursor: pointer;
+}
+
+.voce:last-child { border-bottom: 0; }
+.voce:active { background: var(--superficie-alt); }
+.voce > svg:first-child { color: var(--primario); flex: 0 0 auto; }
+/* :not(:first-child) perche' alcune voci sono informative e hanno la sola
+   icona di sinistra: senza, quella verde verrebbe colorata di grigio. */
+.voce > svg:last-child:not(:first-child) { color: var(--testo-tenue); flex: 0 0 auto; }
+
+.voce__testo { flex: 1; min-width: 0; }
+
+.voce__sotto {
+    display: block;
+    font-size: var(--testo-xs);
+    color: var(--testo-secondario);
+}
+
+/* --- Numeri in evidenza --- */
+
+.numero-grande {
+    font-size: var(--testo-2xl);
+    font-weight: var(--peso-forte);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Corpo di un contenuto testuale (news, torneo) --- */
+
+.corpo-testo {
+    font-size: var(--testo-base);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* --- Campo di ricerca --- */
+
+.ricerca { position: relative; margin-bottom: var(--sp-3); }
+
+.ricerca__icona {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--testo-tenue);
+    pointer-events: none;
+}
+
+.ricerca__input {
+    width: 100%;
+    min-height: var(--tocco-min);
+    padding: 0 var(--sp-4) 0 42px;
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-sm);
+    background: var(--superficie);
+    color: var(--testo);
+    font-family: inherit;
+    font-size: var(--testo-base);
+}
+
+/* --- Riga di classifica generale --- */
+
+.riga-classifica {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3);
+    border: 0;
+    border-bottom: 1px solid var(--bordo);
+    background: transparent;
+    color: var(--testo);
+    font-family: inherit;
+    text-align: left;
+}
+
+.riga-classifica:last-child { border-bottom: 0; }
+
+/* Senza questo la cella centrale non si restringe e spinge i punti fuori
+   schermo: le celle di una griglia hanno min-width auto per impostazione
+   predefinita, quindi il testo lungo del circolo vince sul troncamento. */
+.riga-classifica > div { min-width: 0; }
+
+.riga-classifica--io {
+    background: var(--primario-tenue);
+    box-shadow: inset 3px 0 0 var(--primario);
+}
+
+.riga-classifica__pos {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+    color: var(--testo-secondario);
+}
+
+.riga-classifica__nome {
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    line-height: 1.3;
+}
+
+.riga-classifica__punti {
+    font-size: var(--testo-lg);
+    font-weight: var(--peso-forte);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* Avviso sui tempi di risposta della classifica nazionale */
+.nota-lenta {
+    display: flex;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
+    border-radius: var(--raggio-sm);
+    background: var(--superficie-alt);
+    border: 1px solid var(--bordo);
+    font-size: var(--testo-sm);
+    color: var(--testo-secondario);
+}
+
+/* --- Schermata di avvio, mentre si ripristina la sessione --- */
+
+.avvio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    background: var(--sfondo);
+}
+
+
+/* ============================================================== Scrollbar */
+
+/* Le scrollbar di sistema dentro la WebView sono larghe e grigie, e su una
+   schermata di telefono sembrano un difetto. Le rendiamo sottili e discrete,
+   e le togliamo del tutto dalle strisce che si scorrono col dito. */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bordo-forte) transparent;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+    background: var(--bordo-forte);
+    border-radius: var(--raggio-pill);
+}
+
+::-webkit-scrollbar-thumb:hover { background: var(--testo-tenue); }
+
+/* Strisce orizzontali (turni, filtri): niente barra, si scorrono trascinando */
+.turni,
+.filtri {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.turni::-webkit-scrollbar,
+.filtri::-webkit-scrollbar { display: none; }
+
+/* ===================================================== Live: tavolo e "tu" */
+
+/* Il numero di tavolo era una scritta grigia in mezzo agli altri metadati.
+   Durante una serata e' invece il primo dato che si cerca: "dove gioco e
+   contro chi". Diventa una pastiglia leggibile. */
+.tavolo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px var(--sp-2);
+    border-radius: var(--raggio-sm);
+    border: 1px solid var(--bordo-forte);
+    background: var(--superficie-alt);
+    color: var(--testo-secondario);
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-forte);
+    white-space: nowrap;
+}
+
+/* Il tavolo dove sta giocando il tesserato: pieno, non solo contornato */
+.tavolo--mio {
+    background: var(--primario);
+    border-color: var(--primario);
+    color: var(--su-primario);
+}
+
+/* Le altre coppie sedute al mio stesso tavolo: sono i miei avversari diretti,
+   quindi una tinta appena percettibile che le lega alla mia riga. */
+.riga-live--mio-tavolo { background: var(--superficie-alt); }
+
+/* La mia riga: deve saltare all'occhio scorrendo trenta coppie col pollice. */
+.riga-live--io {
+    background: var(--primario-tenue);
+    box-shadow: inset 4px 0 0 var(--primario);
+}
+
+.riga-live--io .riga-live__posizione,
+.riga-live--io .riga-live__vp {
+    color: var(--primario-scuro);
+}
+
+.riga-live--io .riga-live__coppia { font-weight: var(--peso-forte); }
+
+.distintivo-io {
+    display: inline-block;
+    padding: 1px 6px;
+    margin-right: var(--sp-1);
+    border-radius: var(--raggio-sm);
+    background: var(--primario);
+    color: var(--su-primario);
+    font-size: 10px;
+    font-weight: var(--peso-forte);
+    letter-spacing: .06em;
+    vertical-align: 2px;
+}
+
+/* Interruttore per isolare il proprio tavolo */
+.interruttore-tavolo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: var(--sp-3);
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-sm);
+    background: var(--superficie);
+    color: var(--testo-secondario);
+    font-family: inherit;
+    font-size: var(--testo-sm);
+    font-weight: var(--peso-medio);
+    cursor: pointer;
+}
+
+.interruttore-tavolo.attivo {
+    background: var(--primario);
+    border-color: var(--primario);
+    color: var(--su-primario);
+}
+
+/* ================================================================= Marchi */
+
+/* I marchi FITAB-APS e AICS appartengono alla federazione e all'ente di
+   affiliazione: qui sono usati per identificarli, come fa l'app ufficiale.
+   Esistono in due versioni — a colori per i fondi chiari, in bianco per quelli
+   colorati — e non vanno mai ricolorati o deformati. */
+
+.logo-barra {
+    height: 26px;
+    width: auto;
+    display: block;
+}
+
+.logo-accesso {
+    display: block;
+    width: 100%;
+    max-width: 230px;
+    height: auto;
+    margin: 0 auto var(--sp-4);
+}
+
+.logo-affiliazione {
+    display: block;
+    width: 130px;
+    height: auto;
+    margin: 0 auto;
+}
+
+/* --- Testata della home: fascia istituzionale --- */
+
+/* --- Tessera: colori istituzionali, non quelli dell'app --- */
+
+.tessera {
+    position: relative;
+    overflow: hidden;
+    padding: var(--sp-5) var(--sp-4);
+    border-radius: var(--raggio);
+    background: linear-gradient(135deg, var(--tessera-da), var(--tessera-a));
+    color: #fff;
+    box-shadow: var(--ombra-alta);
+}
+
+.tessera__logo {
+    width: 116px;
+    height: auto;
+    margin-bottom: var(--sp-3);
+    display: block;
+}
+
+/* Filigrana del marchio nell'angolo, come sulle tessere vere */
+.tessera__filigrana {
+    position: absolute;
+    right: -26px;
+    bottom: -34px;
+    width: 170px;
+    opacity: .12;
+    pointer-events: none;
+}
+
+.tessera__ente {
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-forte);
+    letter-spacing: .12em;
+    opacity: .85;
+}
+
+/* --- Avvio --- */
+
+.avvio {
+    /* Stesso colore dello splash nativo dichiarato nel csproj: se differisse
+       si vedrebbe un lampo nel passaggio fra i due. Volutamente letterale,
+       perche' lo splash di sistema non conosce il tema scuro. */
+    background: #0055a3;
+}
+
+.avvio__centro {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+}
+
+.avvio__logo {
+    width: 210px;
+    max-width: 62vw;
+    height: auto;
+}
+
+.avvio__motto {
+    margin: 0;
+    color: rgba(255, 255, 255, .82);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-align: center;
+}
+
+.avvio__piede {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-6));
+}
+
+.avvio__etichetta {
+    color: rgba(255, 255, 255, .6);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+
+/* Il marchio AICS e' a colori su fondo chiaro: su blu va posato su una
+   pastiglia bianca, non ricolorato. */
+.avvio__aics {
+    width: 96px;
+    height: auto;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--raggio-sm);
+    background: #fff;
+}
+
+
+/* ------------------------------------------------- Marchio secondo il tema */
+
+/* Una delle due versioni del logo e' sempre nascosta. Le regole coprono i tre
+   casi: tema di sistema, scelta manuale "chiaro", scelta manuale "scuro". */
+
+.logo-tema--scuro { display: none; }
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-tema="chiaro"]) .logo-tema--chiaro { display: none; }
+    :root:not([data-tema="chiaro"]) .logo-tema--scuro { display: block; }
+}
+
+:root[data-tema="scuro"] .logo-tema--chiaro { display: none; }
+:root[data-tema="scuro"] .logo-tema--scuro { display: block; }
+
+:root[data-tema="chiaro"] .logo-tema--chiaro { display: block; }
+:root[data-tema="chiaro"] .logo-tema--scuro { display: none; }
+
+/* Il marchio AICS esiste solo a colori su fondo chiaro: sul tema scuro va
+   posato su una pastiglia bianca, non ricolorato. */
+.logo-affiliazione {
+    background: #fff;
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--raggio-sm);
+    box-sizing: content-box;
+}
+
+/* --------------------------------------------------------- Scelta del tema */
+
+.scelta-tema {
+    display: flex;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+}
+
+.scelta-tema__voce {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-1);
+    min-height: var(--tocco-min);
+    padding: var(--sp-2);
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-sm);
+    background: var(--superficie);
+    color: var(--testo-secondario);
+    font-family: inherit;
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-medio);
+    cursor: pointer;
+}
+
+.scelta-tema__voce.attiva {
+    background: var(--primario);
+    border-color: var(--primario);
+    color: var(--su-primario);
+    font-weight: var(--peso-forte);
+}

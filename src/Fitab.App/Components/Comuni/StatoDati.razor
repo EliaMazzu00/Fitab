@@ -1,0 +1,39 @@
+@* Dice sempre da quando i dati sono fermi e permette di forzare l'aggiornamento.
+   E' la risposta diretta al difetto piu' lamentato dell'app attuale: non sapere
+   se quello che vedi e' aggiornato, e non poterlo aggiornare senza uscire
+   e rientrare dalla pagina. *@
+
+@if (Stato is not null)
+{
+    <div class="stato-dati @(Stato.ErroreAggiornamento is not null ? "stato-dati--errore" : "")">
+        <span>
+            @if (Stato.ErroreAggiornamento is not null)
+            {
+                <span>@Stato.ErroreAggiornamento Dati di @Stato.EtaDescrizione.</span>
+            }
+            else
+            {
+                <span>Aggiornato @Stato.EtaDescrizione</span>
+            }
+        </span>
+
+        <button class="stato-dati__aggiorna" @onclick="Aggiorna" disabled="@InCorso">
+            <Icona Nome="aggiorna" Dimensione="15" Classe="@(InCorso ? "gira" : null)" />
+            @(InCorso ? "Aggiorno…" : "Aggiorna")
+        </button>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Stato del dato mostrato. Accetta qualsiasi <c>Cached&lt;T&gt;</c> tramite
+    /// <see cref="IStatoDati"/>, cosi' il componente non deve essere generico.
+    /// </summary>
+    [Parameter, EditorRequired] public IStatoDati? Stato { get; set; }
+
+    [Parameter] public EventCallback SuAggiorna { get; set; }
+
+    [Parameter] public bool InCorso { get; set; }
+
+    private Task Aggiorna() => SuAggiorna.InvokeAsync();
+}

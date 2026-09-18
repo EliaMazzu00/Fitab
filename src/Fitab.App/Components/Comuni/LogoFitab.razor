@@ -1,0 +1,20 @@
+@* Marchio FITAB-APS che si adatta al tema.
+
+   Il logo ufficiale esiste in due versioni: a colori, con il wordmark nero,
+   pensata per fondi chiari; e in bianco, per fondi colorati o scuri. Usare
+   quella a colori sul tema scuro rende il nome praticamente invisibile.
+
+   Non si ricolora un marchio: si sceglie la versione giusta. Le rendiamo
+   entrambe e lascia decidere al CSS, cosi' funziona sia col tema di sistema
+   sia con la scelta manuale dell'utente. *@
+
+<img class="@Classe logo-tema logo-tema--chiaro" src="img/fitab-logo.png" alt="@Alt" />
+<img class="@Classe logo-tema logo-tema--scuro" src="img/fitab-logo-bianco.png" alt="" aria-hidden="true" />
+
+@code {
+    /// <summary>Classe che governa la dimensione, es. <c>logo-accesso</c>.</summary>
+    [Parameter] public string? Classe { get; set; }
+
+    [Parameter]
+    public string Alt { get; set; } = "FITAB-APS — Federazione Italiana Associate Burraco";
+}

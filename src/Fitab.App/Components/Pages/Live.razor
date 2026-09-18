@@ -1,0 +1,140 @@
+@page "/live"
+@inject FitabData Dati
+@inject NavigationManager Nav
+
+@* Elenco tornei con risultati in diretta. I tornei di oggi vengono per primi.
+   Il dettaglio — la schermata con i turni a chip e l'aggiornamento automatico —
+   e' il passo successivo. *@
+
+<Intestazione Titolo="Classifiche live" />
+
+<div class="contenuto">
+
+    @if (_live is null)
+    {
+        <Scheletro Quante="4" />
+    }
+    else
+    {
+        <StatoDati Stato="_live" InCorso="_aggiornamentoInCorso" SuAggiorna="Aggiorna" />
+
+        @if (_live.Valore.Count == 0)
+        {
+            <StatoVuoto Titolo="Nessun torneo in diretta"
+                        Messaggio="Quando un circolo avvia un torneo, i risultati compaiono qui."
+                        NomeIcona="diretta" />
+        }
+        else
+        {
+            @if (_oggi.Count > 0)
+            {
+                <section class="sezione">
+                    <div class="sezione__testata">
+                        <span class="sezione__titolo">Oggi</span>
+                        <span class="testo-xs testo-tenue">@_oggi.Count</span>
+                    </div>
+                    @foreach (var t in _oggi)
+                    {
+                        @SchedaTorneo(t, true);
+                    }
+                </section>
+            }
+
+            @if (_altri.Count > 0)
+            {
+                <section class="sezione">
+                    <div class="sezione__testata">
+                        <span class="sezione__titolo">Altre giornate</span>
+                        <span class="testo-xs testo-tenue">@_altri.Count</span>
+                    </div>
+                    @foreach (var t in _altri)
+                    {
+                        @SchedaTorneo(t, false);
+                    }
+                </section>
+            }
+        }
+    }
+</div>
+
+@code {
+    private Cached<IReadOnlyList<LiveTorneo>>? _live;
+    private IReadOnlyList<LiveTorneo> _oggi = [];
+    private IReadOnlyList<LiveTorneo> _altri = [];
+    private bool _aggiornamentoInCorso;
+
+    private RenderFragment SchedaTorneo(LiveTorneo t, bool inCorso) =>
+        @<button class="scheda scheda--cliccabile @(inCorso ? "scheda--barrata" : "")"
+                 @onclick="@(() => Nav.NavigateTo($"live/{t.Codice}"))">
+            <div class="scheda__corpo">
+                <div style="display:flex;align-items:center;gap:var(--sp-2);
+                            margin-bottom:var(--sp-2)">
+                    @if (inCorso)
+                    {
+                        <span class="chip chip--live">
+                            <span class="chip__pallino"></span> IN CORSO
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="chip">@t.Data?.ToString("dd/MM/yyyy")</span>
+                    }
+                    @if (t.Rilevanza != Rilevanza.Sconosciuta)
+                    {
+                        <span class="chip chip--primario">@t.Rilevanza.Descrizione()</span>
+                    }
+                </div>
+
+                <div class="scheda__titolo troncato-2">@t.Descrizione</div>
+                <div class="scheda__meta troncato">@t.Circolo</div>
+
+                <div class="scheda__meta testo-xs"
+                     style="display:flex;gap:var(--sp-4);margin-top:var(--sp-3)">
+                    <span><Icona Nome="tavolo" Dimensione="14" /> @t.NumeroTavoli tavoli</span>
+                    <span><Icona Nome="orologio" Dimensione="14" /> @t.TurniTotali turni</span>
+                </div>
+            </div>
+        </button>;
+
+    protected override async Task OnInitializedAsync() => await Carica();
+
+    private async Task Carica(bool forza = false)
+    {
+        try
+        {
+            _live = await Dati.LiveTorneiAsync(null, c => InvokeAsync(() =>
+            {
+                _live = c;
+                Dividi();
+                StateHasChanged();
+            }), forza);
+        }
+        catch (Exception)
+        {
+            // Stato vuoto gestito dalla UI.
+        }
+        finally
+        {
+            _aggiornamentoInCorso = false;
+            Dividi();
+        }
+    }
+
+    private void Dividi()
+    {
+        var tutti = _live?.Valore ?? [];
+        _oggi = tutti.Where(t => t.EDiOggi)
+                     .OrderBy(t => t.Descrizione)
+                     .ToList();
+        _altri = tutti.Where(t => !t.EDiOggi)
+                      .OrderByDescending(t => t.Data ?? DateOnly.MinValue)
+                      .ToList();
+    }
+
+    private async Task Aggiorna()
+    {
+        _aggiornamentoInCorso = true;
+        await Carica(forza: true);
+        StateHasChanged();
+    }
+}

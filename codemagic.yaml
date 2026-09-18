@@ -1,0 +1,72 @@
+# Build iOS non firmata, pensata per il sideload con Sideloadly/AltStore
+# usando un Apple ID gratuito. NON produce un pacchetto distribuibile:
+# l'app va rifirmata sul PC e scade dopo 7 giorni.
+#
+# Avvio manuale dalla dashboard Codemagic: niente trigger automatici, i
+# minuti gratis sono 500 al mese e una build iOS Release ne mangia ~25.
+
+workflows:
+  ios-sideload:
+    name: Fitab iOS (non firmata, per sideload)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      xcode: latest
+      vars:
+        DOTNET_PATH: $CM_BUILD_DIR/dotnet
+        DOTNET: $CM_BUILD_DIR/dotnet/dotnet
+        PROJECT: src/Fitab.App/Fitab.App.csproj
+        TFM: net10.0-ios
+
+    scripts:
+      - name: Installa .NET SDK 10
+        script: |
+          wget -q https://dot.net/v1/dotnet-install.sh
+          chmod +x dotnet-install.sh
+          ./dotnet-install.sh --channel 10.0 --install-dir "$DOTNET_PATH"
+          $DOTNET --info
+
+      # Serve il workload MAUI completo, non solo maui-ios: su macOS il
+      # csproj espone anche net10.0-android, e il restore li tocca tutti.
+      - name: Installa i workload MAUI
+        script: |
+          $DOTNET workload install maui
+
+      - name: Restore
+        script: |
+          $DOTNET restore "$PROJECT"
+
+      # Le proprieta' che disattivano la firma sono cambiate piu' volte fra
+      # le versioni del workload iOS. Se il publish si lamenta di un
+      # certificato mancante, e' qui che si mette mano (vedi note in fondo).
+      - name: Publish iOS senza firma
+        script: |
+          $DOTNET publish "$PROJECT" \
+            -f "$TFM" \
+            -c Release \
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:BuildIpa=false \
+            -p:EnableCodeSigning=false \
+            -p:_RequireCodeSigning=false \
+            -p:CodesignKey="" \
+            -p:CodesignProvision=""
+
+      # Una .ipa e' solo uno zip con il bundle .app dentro una cartella
+      # Payload/. Lo impacchettiamo a mano perche' BuildIpa e' disattivato.
+      - name: Impacchetta la .ipa
+        script: |
+          APP=$(find src/Fitab.App/bin/Release/$TFM -maxdepth 4 -type d -name "*.app" | head -1)
+          if [ -z "$APP" ]; then
+            echo "Nessun bundle .app trovato: il publish non ha prodotto output."
+            exit 1
+          fi
+          echo "Bundle trovato: $APP"
+          rm -rf build && mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build && zip -qry Fitab.ipa Payload
+          ls -lh Fitab.ipa
+
+    artifacts:
+      - build/*.ipa
+      - /tmp/xcodebuild_logs/*.log

@@ -1,0 +1,165 @@
+/* Token di design Fitab 2.0.
+
+   Il colore principale e' il blu del marchio ufficiale FITAB-APS, campionato
+   dal logo: #0055A3. Il verde dell'app attuale non e' un colore istituzionale,
+   era una scelta dello sviluppatore precedente.
+
+   Il verde non sparisce: diventa il colore semantico del guadagno — posizioni
+   risalite, punti in crescita — dove nessun altro colore funzionerebbe.
+
+   Tipografia tarata sul pubblico reale della FITAB, in larga parte over 55:
+   corpo base 17px (non 14/16 come i default web), interlinea generosa,
+   aree toccabili mai sotto i 48px. */
+
+:root {
+    /* --- Marchio --- */
+    --blu: #0055a3;
+    --blu-scuro: #003f7a;
+    --blu-chiaro: #2b7fce;
+    --blu-tenue: #e7f0f9;
+
+    /* --- Semantici --- */
+    --primario: var(--blu);
+    --primario-scuro: var(--blu-scuro);
+    --primario-chiaro: var(--blu-chiaro);
+    --primario-tenue: var(--blu-tenue);
+    --su-primario: #ffffff;
+
+    /* La barra del titolo e' blu pieno nel tema chiaro. Nel tema scuro diventa
+       una superficie scura: una fascia satura in cima a una schermata scura
+       affatica la lettura e non e' quello che si aspetta chi usa il tema scuro. */
+    --titolo-sfondo: var(--primario);
+    --titolo-testo: var(--su-primario);
+
+    /* Lampeggio delle righe che cambiano nella classifica live */
+    --evidenzia: rgba(255, 193, 7, .45);
+
+    /* Tessera: blu piu' profondo del marchio. Ora che l'app e' blu, una tessera
+       dello stesso tono si confonderebbe con lo sfondo delle schede. */
+    --tessera-da: #00305e;
+    --tessera-a: var(--blu);
+
+    /* --- Variazioni: non seguono il marchio, seguono il significato --- */
+    --positivo: #1b9a3d;
+    --negativo: #c62828;
+
+    --rosso: #c62828;
+    --rosso-tenue: #fdecea;
+    --ambra: #ef6c00;
+    --blu-info: #1565c0;
+
+    /* --- Superfici --- */
+    --sfondo: #f4f5f6;
+    --superficie: #ffffff;
+    --superficie-alt: #fafbfb;
+    --bordo: #e2e5e8;
+    --bordo-forte: #c9ced3;
+
+    /* --- Testo --- */
+    --testo: #1a1c1e;
+    --testo-secondario: #5a6169;
+    --testo-tenue: #868d95;
+    --testo-su-scuro: #ffffff;
+
+    /* --- Tipografia --- */
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+            "Helvetica Neue", Arial, sans-serif;
+
+    --testo-xs: 0.8125rem;   /* 13px - solo metadati */
+    --testo-sm: 0.9375rem;   /* 15px */
+    --testo-base: 1.0625rem; /* 17px - corpo */
+    --testo-lg: 1.1875rem;   /* 19px */
+    --testo-xl: 1.375rem;    /* 22px - titoli schermata */
+    --testo-2xl: 1.75rem;    /* 28px - numeri in evidenza */
+
+    --peso-normale: 400;
+    --peso-medio: 500;
+    --peso-forte: 700;
+
+    /* --- Spaziature --- */
+    --sp-1: 0.25rem;
+    --sp-2: 0.5rem;
+    --sp-3: 0.75rem;
+    --sp-4: 1rem;
+    --sp-5: 1.5rem;
+    --sp-6: 2rem;
+
+    /* --- Forme --- */
+    --raggio: 12px;
+    --raggio-sm: 8px;
+    --raggio-pill: 999px;
+
+    --ombra: 0 1px 2px rgba(0, 0, 0, .06), 0 2px 8px rgba(0, 0, 0, .05);
+    --ombra-alta: 0 2px 4px rgba(0, 0, 0, .08), 0 8px 24px rgba(0, 0, 0, .10);
+
+    /* --- Misure --- */
+    --tocco-min: 48px;   /* area toccabile minima */
+    --barra-tab: 60px;
+    --barra-titolo: 56px;
+
+    --transizione: 160ms ease;
+}
+
+/* Tema scuro: segue l'impostazione di sistema.
+   Il blu del marchio su fondo scuro e' troppo cupo, quindi si schiarisce e il
+   testo che ci sta sopra diventa scuro per mantenere il contrasto. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-tema="chiaro"]) {
+        --blu: #5aa2e0;
+        --blu-scuro: #2b6ca8;
+        --blu-chiaro: #8cc2ef;
+        --blu-tenue: #13243a;
+
+        --su-primario: #04203c;
+
+        --tessera-da: #012347;
+        --tessera-a: #0b4d8f;
+
+        --positivo: #4caf50;
+        --negativo: #ef5350;
+        --rosso: #ef5350;
+        --rosso-tenue: #2b1514;
+
+        --sfondo: #121416;
+        --superficie: #1c1f22;
+        --superficie-alt: #23272b;
+        --bordo: #2e3338;
+        --bordo-forte: #3d444a;
+
+        --testo: #e8eaed;
+        --testo-secondario: #a8b0b8;
+        --testo-tenue: #7c848c;
+
+        --titolo-sfondo: var(--superficie);
+        --titolo-testo: var(--testo);
+        --evidenzia: rgba(255, 193, 7, .20);
+
+        --ombra: 0 1px 2px rgba(0, 0, 0, .4), 0 2px 8px rgba(0, 0, 0, .3);
+        --ombra-alta: 0 2px 4px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .4);
+    }
+}
+
+:root[data-tema="scuro"] {
+    --blu: #5aa2e0;
+    --blu-scuro: #2b6ca8;
+    --blu-chiaro: #8cc2ef;
+    --blu-tenue: #13243a;
+    --su-primario: #04203c;
+    --tessera-da: #012347;
+    --tessera-a: #0b4d8f;
+    --positivo: #4caf50;
+    --negativo: #ef5350;
+    --rosso: #ef5350;
+    --rosso-tenue: #2b1514;
+    --sfondo: #121416;
+    --superficie: #1c1f22;
+    --superficie-alt: #23272b;
+    --bordo: #2e3338;
+    --bordo-forte: #3d444a;
+    --testo: #e8eaed;
+    --testo-secondario: #a8b0b8;
+    --testo-tenue: #7c848c;
+    --titolo-sfondo: var(--superficie);
+    --titolo-testo: var(--testo);
+    --evidenzia: rgba(255, 193, 7, .20);
+}

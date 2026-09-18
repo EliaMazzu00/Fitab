@@ -1,0 +1,25 @@
+@* Navigazione principale: quattro tab, etichetta sempre visibile sotto l'icona.
+   Sostituisce i 5 tab + menu laterale dell'app attuale, dove le funzioni erano
+   divise fra due sistemi di navigazione diversi. *@
+
+<nav class="barra-tab">
+    <NavLink class="barra-tab__voce" ActiveClass="attiva" href="" Match="NavLinkMatch.All">
+        <Icona Nome="casa" Dimensione="26" />
+        <span>Oggi</span>
+    </NavLink>
+
+    <NavLink class="barra-tab__voce" ActiveClass="attiva" href="tornei">
+        <Icona Nome="calendario" Dimensione="26" />
+        <span>Tornei</span>
+    </NavLink>
+
+    <NavLink class="barra-tab__voce" ActiveClass="attiva" href="live">
+        <Icona Nome="diretta" Dimensione="26" />
+        <span>Live</span>
+    </NavLink>
+
+    <NavLink class="barra-tab__voce" ActiveClass="attiva" href="classifiche">
+        <Icona Nome="medaglia" Dimensione="26" />
+        <span>Classifiche</span>
+    </NavLink>
+</nav>

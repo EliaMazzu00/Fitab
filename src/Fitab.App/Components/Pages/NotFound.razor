@@ -1,0 +1,14 @@
+@page "/not-found"
+@layout MainLayout
+@inject NavigationManager Nav
+
+<Intestazione Titolo="Pagina non trovata" Indietro="true" SuIndietro="@(() => Nav.NavigateTo("/"))" />
+
+<div class="contenuto">
+    <StatoVuoto Titolo="Contenuto non disponibile"
+                Messaggio="La pagina che cercavi non esiste o è stata rimossa."
+                NomeIcona="nessuna-rete">
+        <button class="pulsante" style="margin-top:var(--sp-3)"
+                @onclick="@(() => Nav.NavigateTo("/"))">Torna alla home</button>
+    </StatoVuoto>
+</div>

@@ -1,0 +1,73 @@
+@using Fitab.App.Servizi
+@inject SessioneUtente Utente
+@inject ServizioTema Tema
+@inject Precaricamento Precarica
+@inject IJSRuntime JS
+
+@* Il tesserato salvato va ripristinato prima di mostrare qualsiasi schermata:
+   diverse pagine decidono cosa mostrare in base al fatto di essere autenticati,
+   e farlo dopo produrrebbe un lampeggio dello stato "non accedi". *@
+
+@if (!_pronto)
+{
+    @* Lo splash di sistema su Android 12+ puo' mostrare solo il simbolo dentro
+       un ritaglio circolare. Il marchio completo, il motto e l'affiliazione
+       stanno qui: e' la schermata che resta a video mentre si ripristina la
+       sessione, e non ha vincoli di forma. *@
+    <div class="avvio">
+        <div class="avvio__centro">
+            <img class="avvio__logo" src="img/fitab-logo-bianco.png"
+                 alt="FITAB-APS — Federazione Italiana Associate Burraco" />
+            <p class="avvio__motto">FEDERAZIONE ITALIANA ASSOCIATE BURRACO</p>
+        </div>
+
+        <div class="avvio__piede">
+            <span class="avvio__etichetta">affiliata a</span>
+            <img class="avvio__aics" src="img/aics-logo.png"
+                 alt="AICS — Associazione Italiana Cultura Sport" />
+        </div>
+    </div>
+}
+else
+{
+    <Router AppAssembly="typeof(MauiProgram).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+}
+
+@code {
+    private bool _pronto;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Il ripristino della sessione dura pochi millisecondi, quindi lo
+        // splash spariva prima che si riuscisse a leggerlo. Gli diamo una
+        // durata minima: sotto il secondo e mezzo un marchio non si vede.
+        var minimo = Task.Delay(1800);
+
+        try
+        {
+            await Utente.RipristinaAsync();
+        }
+        finally
+        {
+            await minimo;
+            _pronto = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool primaVolta)
+    {
+        if (!primaVolta) return;
+
+        // Il tema si applica appena il JavaScript e' disponibile.
+        await Tema.InizializzaAsync(JS);
+
+        // Le classifiche si scaricano da sole mentre l'utente guarda altro:
+        // quando aprira' la sezione le trovera' gia' pronte.
+        Precarica.Avvia();
+    }
+}

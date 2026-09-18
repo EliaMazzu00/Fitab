@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Fitab.Api/Fitab.Api.csproj" />
+  <Project Path="Fitab.App/Fitab.App.csproj" />
+  <Project Path="Fitab.Core/Fitab.Core.csproj" />
+  <Project Path="Fitab.Data/Fitab.Data.csproj" />
+  <Project Path="Fitab.Probe/Fitab.Probe.csproj" />
+</Solution>

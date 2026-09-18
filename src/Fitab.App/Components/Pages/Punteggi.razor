@@ -1,0 +1,151 @@
+@page "/punteggi"
+@using Fitab.App.Servizi
+@inject FitabData Dati
+@inject SessioneUtente Utente
+@inject NavigationManager Nav
+
+@* Storico dei risultati del tesserato, anno per anno. *@
+
+<Intestazione Titolo="I miei punteggi" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("profilo"))" />
+
+<div class="contenuto">
+
+    @if (Utente.Autenticato)
+    {
+        <label class="campo">
+            <span class="campo__etichetta">Anno</span>
+            <select class="campo__input" @onchange="CambiaAnno">
+                @foreach (var anno in _anni)
+                {
+                    <option value="@anno" selected="@(anno == _anno)">@anno</option>
+                }
+            </select>
+        </label>
+    }
+
+    @if (!Utente.Autenticato)
+    {
+        <StatoVuoto Titolo="Accedi per vedere i tuoi punteggi" NomeIcona="persona">
+            <button class="pulsante" style="margin-top:var(--sp-3)"
+                    @onclick="@(() => Nav.NavigateTo("profilo"))">Accedi</button>
+        </StatoVuoto>
+    }
+    else if (_punteggi is null)
+    {
+        <Scheletro Quante="4" />
+    }
+    else
+    {
+        <StatoDati Stato="_punteggi" InCorso="_inAggiornamento" SuAggiorna="Aggiorna" />
+
+        @if (_punteggi.Valore.Count == 0)
+        {
+            <StatoVuoto Titolo="@($"Nessun risultato nel {_anno}")"
+                        Messaggio="Non risultano tornei disputati in questo anno."
+                        NomeIcona="medaglia" />
+        }
+        else
+        {
+            <div class="scheda">
+                <div class="scheda__corpo" style="display:flex;text-align:center">
+                    <div style="flex:1">
+                        <div class="testo-xs testo-tenue">TORNEI</div>
+                        <div class="numero-grande">@_punteggi.Valore.Count</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="testo-xs testo-tenue">PUNTI TOTALI</div>
+                        <div class="numero-grande">@_punteggi.Valore.Sum(p => p.Punti)</div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="sezione">
+                @foreach (var p in _punteggi.Valore.OrderByDescending(p => p.Data))
+                {
+                    <div class="scheda">
+                        <div class="scheda__corpo">
+                            <div style="display:flex;gap:var(--sp-3);align-items:flex-start">
+                                <div style="flex:1;min-width:0">
+                                    <div class="testo-xs testo-tenue">
+                                        @p.Data?.ToString("dd/MM/yyyy")
+                                    </div>
+                                    <div class="scheda__titolo troncato-2">@p.Descrizione</div>
+                                    @if (!string.IsNullOrWhiteSpace(p.Circolo))
+                                    {
+                                        <div class="scheda__meta troncato">@p.Circolo</div>
+                                    }
+                                    @if (p.Rilevanza != Rilevanza.Sconosciuta)
+                                    {
+                                        <span class="chip chip--primario" style="margin-top:var(--sp-2)">
+                                            @p.Rilevanza.Descrizione()
+                                        </span>
+                                    }
+                                </div>
+                                <div style="text-align:right">
+                                    <div class="numero-grande testo-primario">@p.Punti</div>
+                                    <div class="testo-xs testo-tenue">punti</div>
+                                    @if (p.Posizione > 0)
+                                    {
+                                        <div class="testo-sm testo-forte" style="margin-top:var(--sp-2)">
+                                            @p.Posizione°
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+    }
+</div>
+
+@code {
+    private static readonly int[] _anni =
+        Enumerable.Range(2010, DateTime.Today.Year - 2010 + 1).Reverse().ToArray();
+
+    private int _anno = DateTime.Today.Year;
+    private Cached<IReadOnlyList<Punteggio>>? _punteggi;
+    private bool _inAggiornamento;
+
+    protected override async Task OnInitializedAsync() => await Carica();
+
+    private async Task Carica(bool forza = false)
+    {
+        if (!Utente.Autenticato) return;
+
+        try
+        {
+            _punteggi = await Dati.PunteggiAsync(
+                Utente.Tessera!, Utente.CodiceFiscale!, _anno,
+                c => InvokeAsync(() => { _punteggi = c; StateHasChanged(); }), forza);
+        }
+        catch (Exception)
+        {
+            _punteggi = new Cached<IReadOnlyList<Punteggio>>([], DateTimeOffset.Now, false,
+                "Aggiornamento non riuscito.");
+        }
+        finally
+        {
+            _inAggiornamento = false;
+        }
+    }
+
+    private async Task CambiaAnno(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var anno) || anno == _anno) return;
+
+        _anno = anno;
+        _punteggi = null;
+        StateHasChanged();
+        await Carica();
+    }
+
+    private async Task Aggiorna()
+    {
+        _inAggiornamento = true;
+        await Carica(forza: true);
+        StateHasChanged();
+    }
+}

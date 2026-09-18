@@ -1,0 +1,164 @@
+@page "/classifiche"
+@using Fitab.App.Servizi
+@implements IDisposable
+@inject FitabData Dati
+@inject SessioneUtente Utente
+@inject NavigationManager Nav
+
+@* Tipi di classifica. Nel backend l'header TipoClassifica vale 1 per la generale
+   e l'anno per le classifiche annuali (HomeTab.caricaTipoClassifica dell'app
+   originale, che generava gli anni da 2010 a oggi).
+
+   Nota di prodotto: la generale non filtrata costa ~24 secondi lato server,
+   mentre filtrata per circolo sta sotto il secondo (API-FITAB.md §9). Per questo
+   l'ingresso "Il mio circolo" viene prima e la nazionale e' presentata come
+   approfondimento. *@
+
+<Intestazione Titolo="Classifiche" />
+
+<div class="contenuto">
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">La mia posizione</span>
+        </div>
+
+        @if (!Utente.Autenticato)
+        {
+            <div class="scheda">
+                <div class="scheda__corpo">
+                    <StatoVuoto Titolo="Accedi con la tua tessera"
+                                Messaggio="Inserendo numero di tessera e codice fiscale vedrai la tua posizione, i tuoi punti e la tua coppia evidenziata nei tornei live."
+                                NomeIcona="persona">
+                        <button class="pulsante pulsante--largo" style="margin-top:var(--sp-3)"
+                                @onclick="@(() => Nav.NavigateTo("profilo"))">
+                            Accedi
+                        </button>
+                    </StatoVuoto>
+                </div>
+            </div>
+        }
+        else if (_posizione?.Valore is { } p)
+        {
+            @* Con oltre 6.000 tesserati in graduatoria, scorrere fino alla propria
+               riga significherebbe caricare piu' di cento pagine da 24 secondi:
+               la posizione personale ha il suo endpoint dedicato ed e' immediata. *@
+            <div class="scheda scheda--barrata">
+                <div class="scheda__corpo">
+                    <div class="testo-sm testo-forte">@p.Nominativo</div>
+                    @if (!string.IsNullOrWhiteSpace(p.Circolo))
+                    {
+                        <div class="testo-xs testo-tenue troncato">@p.Circolo</div>
+                    }
+
+                    <div style="display:flex;gap:var(--sp-5);text-align:center;margin-top:var(--sp-3)">
+                        <div style="flex:1">
+                            <div class="testo-xs testo-tenue">POSIZIONE</div>
+                            <div class="numero-grande">@p.Posizione°</div>
+                        </div>
+                        <div style="flex:1">
+                            <div class="testo-xs testo-tenue">PUNTI @p.Anno</div>
+                            <div class="numero-grande">@p.Punti</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (_posizione is null)
+        {
+            <div class="scheda"><div class="scheda__corpo">
+                <div class="scheletro scheletro--titolo"></div>
+                <div class="scheletro scheletro--riga" style="width:60%;margin-bottom:0"></div>
+            </div></div>
+        }
+
+        @if (Utente.Autenticato && Utente.Attuale!.IdCircolo > 0)
+        {
+            <button class="pulsante pulsante--secondario pulsante--largo"
+                    style="margin-top:var(--sp-3)"
+                    @onclick="@(() => Apri(1, Utente.Attuale!.IdCircolo))">
+                <Icona Nome="medaglia" Dimensione="18" /> Classifica del mio circolo
+            </button>
+        }
+    </section>
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Classifica generale</span>
+        </div>
+
+        <button class="scheda scheda--cliccabile scheda--barrata" @onclick="@(() => Apri(1))">
+            <div class="scheda__corpo" style="display:flex;align-items:center;gap:var(--sp-3)">
+                <span class="testo-primario"><Icona Nome="medaglia" Dimensione="28" /></span>
+                <div style="flex:1">
+                    <div class="scheda__titolo">Generale</div>
+                    <div class="scheda__meta testo-sm">Graduatoria federale complessiva</div>
+                </div>
+                <span class="testo-tenue"><Icona Nome="avanti" /></span>
+            </div>
+        </button>
+    </section>
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Per anno</span>
+        </div>
+
+        <div class="elenco">
+            @foreach (var anno in _anni)
+            {
+                <button class="voce" @onclick="@(() => Apri(anno))">
+                    <Icona Nome="medaglia" Dimensione="22" />
+                    <span class="voce__testo">@anno</span>
+                    <Icona Nome="avanti" Dimensione="18" />
+                </button>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly int[] _anni =
+        Enumerable.Range(2010, DateTime.Today.Year - 2010 + 1)
+                  .Reverse()
+                  .ToArray();
+
+    private Cached<MiaPosizione?>? _posizione;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Utente.Cambiata += SuCambioUtente;
+        await CaricaPosizione();
+    }
+
+    private void SuCambioUtente() => InvokeAsync(async () =>
+    {
+        _posizione = null;
+        StateHasChanged();
+        await CaricaPosizione();
+        StateHasChanged();
+    });
+
+    private async Task CaricaPosizione()
+    {
+        if (!Utente.Autenticato) return;
+
+        try
+        {
+            _posizione = await Dati.MiaPosizioneAsync(
+                Utente.Tessera!, Utente.CodiceFiscale!,
+                c => InvokeAsync(() => { _posizione = c; StateHasChanged(); }));
+        }
+        catch (Exception)
+        {
+            _posizione = new Cached<MiaPosizione?>(null, DateTimeOffset.Now, false);
+        }
+    }
+
+    private void Apri(int tipo, int? circolo = null) =>
+        Nav.NavigateTo(circolo is null
+            ? $"classifiche/{tipo}"
+            : $"classifiche/{tipo}?circolo={circolo}");
+
+    public void Dispose() => Utente.Cambiata -= SuCambioUtente;
+}

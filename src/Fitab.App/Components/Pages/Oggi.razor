@@ -1,0 +1,227 @@
+@page "/"
+@using Fitab.Core
+@inject FitabData Dati
+@inject NavigationManager Nav
+
+@* Tab "Oggi": cosa sta succedendo adesso.
+   Nell'app attuale il primo tab e' il solo elenco news; qui i tornei in diretta
+   vengono prima di tutto, perche' e' l'informazione per cui l'app viene aperta
+   durante una serata. *@
+
+<Intestazione Marchio="true">
+    <Azioni>
+        <button aria-label="Area personale" @onclick="@(() => Nav.NavigateTo("profilo"))">
+            <Icona Nome="persona" />
+        </button>
+    </Azioni>
+</Intestazione>
+
+<div class="contenuto">
+
+    @if (_primoCaricamento)
+    {
+        <Scheletro Quante="4" />
+    }
+    else
+    {
+        <StatoDati Stato="_statoPiuVecchio" InCorso="_aggiornamentoInCorso"
+                   SuAggiorna="AggiornaTutto" />
+
+        @* --- In diretta ora --- *@
+        @if (_liveOggi.Count > 0)
+        {
+            <section class="sezione">
+                <div class="sezione__testata">
+                    <span class="sezione__titolo">In diretta ora</span>
+                    <button class="sezione__link" @onclick="@(() => Nav.NavigateTo("live"))">
+                        Tutti (@(_live?.Valore.Count ?? 0))
+                    </button>
+                </div>
+
+                @foreach (var torneo in _liveOggi.Take(3))
+                {
+                    <button class="scheda scheda--cliccabile scheda--barrata"
+                            @onclick="@(() => ApriLive(torneo))">
+                        <div class="scheda__corpo">
+                            <span class="chip chip--live">
+                                <span class="chip__pallino"></span> IN CORSO
+                            </span>
+                            <div class="scheda__titolo" style="margin-top:var(--sp-2)">
+                                @torneo.Descrizione
+                            </div>
+                            <div class="scheda__meta">@torneo.Circolo</div>
+                            <div class="scheda__meta testo-xs" style="margin-top:var(--sp-2)">
+                                @torneo.NumeroTavoli tavoli · @torneo.TurniTotali turni · arb. @torneo.Arbitro
+                            </div>
+                        </div>
+                    </button>
+                }
+            </section>
+        }
+
+        @* --- Prossimi tornei --- *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">Prossimi tornei</span>
+                <button class="sezione__link" @onclick="@(() => Nav.NavigateTo("tornei"))">
+                    Calendario
+                </button>
+            </div>
+
+            @if (_prossimiTornei.Count == 0)
+            {
+                <StatoVuoto Titolo="Nessun torneo in programma"
+                            Messaggio="Non ci sono tornei nei prossimi giorni."
+                            NomeIcona="calendario" />
+            }
+            else
+            {
+                @foreach (var torneo in _prossimiTornei)
+                {
+                    <button class="scheda scheda--cliccabile"
+                            @onclick="@(() => ApriTorneo(torneo))">
+                        <div class="scheda__corpo" style="display:flex;gap:var(--sp-4)">
+                            <div style="text-align:center;min-width:52px">
+                                <div class="testo-forte" style="font-size:var(--testo-2xl);line-height:1">
+                                    @(torneo.DaData?.Day.ToString() ?? "–")
+                                </div>
+                                <div class="testo-xs testo-secondario" style="text-transform:uppercase">
+                                    @Mese(torneo.DaData)
+                                </div>
+                            </div>
+                            <div style="flex:1;min-width:0">
+                                <div class="scheda__titolo troncato-2">@torneo.Titolo</div>
+                                @if (!string.IsNullOrWhiteSpace(torneo.Luogo))
+                                {
+                                    <div class="scheda__meta troncato">@torneo.Luogo</div>
+                                }
+                                @if (torneo.Rilevanza != Rilevanza.Sconosciuta)
+                                {
+                                    <span class="chip chip--primario" style="margin-top:var(--sp-2)">
+                                        @torneo.Rilevanza.Descrizione()
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </button>
+                }
+            }
+        </section>
+
+        @* --- Ultime news --- *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">Ultime news</span>
+            </div>
+
+            @if (_news is null || _news.Valore.Count == 0)
+            {
+                <StatoVuoto Titolo="Nessuna news" NomeIcona="documento" />
+            }
+            else
+            {
+                @foreach (var news in _news.Valore.Take(5))
+                {
+                    <button class="scheda scheda--cliccabile scheda--barrata"
+                            @onclick="@(() => ApriNews(news))">
+                        <div class="scheda__corpo">
+                            <div class="testo-xs testo-tenue">@news.Data?.ToString("dd/MM/yyyy")</div>
+                            <div class="scheda__titolo troncato-2">@news.Titolo</div>
+                            @{
+                                var anteprima = Testo.Anteprima(news.Messaggio, 110);
+                            }
+                            @if (anteprima.Length > 0)
+                            {
+                                <div class="scheda__meta troncato-2">@anteprima</div>
+                            }
+                        </div>
+                    </button>
+                }
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private Cached<IReadOnlyList<News>>? _news;
+    private Cached<IReadOnlyList<Torneo>>? _tornei;
+    private Cached<IReadOnlyList<LiveTorneo>>? _live;
+
+    private bool _primoCaricamento = true;
+    private bool _aggiornamentoInCorso;
+
+    private IReadOnlyList<LiveTorneo> _liveOggi = [];
+    private IReadOnlyList<Torneo> _prossimiTornei = [];
+
+    private IStatoDati? _statoPiuVecchio => new IStatoDati?[] { _news, _tornei, _live }
+        .Where(s => s is not null)
+        .OrderBy(s => s!.AggiornatoIl)
+        .FirstOrDefault();
+
+    protected override async Task OnInitializedAsync() => await Carica();
+
+    private async Task Carica(bool forza = false)
+    {
+        var oggi = DateOnly.FromDateTime(DateTime.Today);
+
+        var news = Dati.NewsAsync(c => Applica(() => _news = c), forza);
+        var tornei = Dati.CalendarioAsync(oggi, c => Applica(() => _tornei = c), forza);
+        var live = Dati.LiveTorneiAsync(null, c => Applica(() => _live = c), forza);
+
+        try
+        {
+            await Task.WhenAll(news, tornei, live);
+            _news = news.Result;
+            _tornei = tornei.Result;
+            _live = live.Result;
+        }
+        catch (Exception)
+        {
+            // Senza rete e senza cache alcune sezioni restano vuote: la UI lo mostra
+            // con gli stati vuoti, non c'e' nulla da interrompere.
+        }
+        finally
+        {
+            _primoCaricamento = false;
+            _aggiornamentoInCorso = false;
+            Ricalcola();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Applica un aggiornamento arrivato in background dal thread di rete.</summary>
+    private void Applica(Action assegna) => InvokeAsync(() =>
+    {
+        assegna();
+        Ricalcola();
+        StateHasChanged();
+    });
+
+    private void Ricalcola()
+    {
+        var oggi = DateOnly.FromDateTime(DateTime.Today);
+
+        _liveOggi = _live?.Valore.Where(t => t.EDiOggi).ToList() ?? [];
+
+        _prossimiTornei = _tornei?.Valore
+            .Where(t => t.DaData is null || t.DaData >= oggi)
+            .OrderBy(t => t.DaData ?? DateOnly.MaxValue)
+            .Take(5)
+            .ToList() ?? [];
+    }
+
+    private async Task AggiornaTutto()
+    {
+        _aggiornamentoInCorso = true;
+        await Carica(forza: true);
+    }
+
+    private void ApriLive(LiveTorneo t) => Nav.NavigateTo($"live/{t.Codice}");
+    private void ApriTorneo(Torneo t) => Nav.NavigateTo($"tornei/{t.Id.Anno}/{t.Id.Progressivo}");
+    private void ApriNews(News n) => Nav.NavigateTo($"news/{n.Id.Anno}/{n.Id.Progressivo}");
+
+    private static string Mese(DateOnly? data) => data is null
+        ? ""
+        : new[] { "", "gen", "feb", "mar", "apr", "mag", "giu",
+                  "lug", "ago", "set", "ott", "nov", "dic" }[data.Value.Month];
+}

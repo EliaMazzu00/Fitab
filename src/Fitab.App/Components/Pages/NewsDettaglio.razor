@@ -1,0 +1,89 @@
+@page "/news/{Anno:int}/{Progressivo:int}"
+@using Fitab.Core
+@using Fitab.App.Servizi
+@inject FitabData Dati
+@inject AperturaEsterna Esterno
+@inject NavigationManager Nav
+
+<Intestazione Titolo="News" Indietro="true" SuIndietro="@(() => Nav.NavigateTo("/"))" />
+
+<div class="contenuto">
+
+    @if (_news is null)
+    {
+        <Scheletro Quante="1" />
+    }
+    else if (_news.Valore is null)
+    {
+        <StatoVuoto Titolo="News non trovata"
+                    Messaggio="Il contenuto potrebbe essere stato rimosso."
+                    NomeIcona="documento" />
+    }
+    else
+    {
+        var n = _news.Valore;
+
+        <div class="scheda">
+            <div class="scheda__corpo">
+                <div class="testo-xs testo-tenue">@n.Data?.ToString("dddd d MMMM yyyy")</div>
+                <h2 style="font-size:var(--testo-xl);margin:var(--sp-2) 0 var(--sp-4)">@n.Titolo</h2>
+
+                @{
+                    // Il messaggio arriva dal CMS con markup HTML. Lo rendiamo come
+                    // testo semplice conservando gli a capo: iniettare HTML di terzi
+                    // in una WebView non vale il grassetto in piu'.
+                    var corpo = Testo.SenzaHtml(n.Messaggio);
+                }
+
+                @if (corpo.Length > 0)
+                {
+                    <div class="corpo-testo selezionabile">@corpo</div>
+                }
+                else
+                {
+                    <p class="testo-secondario">
+                        Questa news non ha un testo: il contenuto è nell'allegato.
+                    </p>
+                }
+            </div>
+        </div>
+
+        @if (n.HaAllegato)
+        {
+            <button class="pulsante pulsante--largo" style="margin-top:var(--sp-4)"
+                    @onclick="@(() => ApriAllegato(n.Allegato!))">
+                <Icona Nome="documento" Dimensione="20" /> Apri il documento allegato
+            </button>
+
+            <p class="testo-xs testo-tenue" style="margin-top:var(--sp-2);text-align:center">
+                Il PDF si apre nel visualizzatore del telefono.
+            </p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Anno { get; set; }
+    [Parameter] public int Progressivo { get; set; }
+
+    private Cached<News?>? _news;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _news = null;
+        var id = new ContenutoId(Anno, Progressivo);
+
+        try
+        {
+            _news = await Dati.NewsAsync(id,
+                c => InvokeAsync(() => { _news = c; StateHasChanged(); }));
+        }
+        catch (Exception)
+        {
+            _news = new Cached<News?>(null, DateTimeOffset.Now, false);
+        }
+    }
+
+    private Task ApriAllegato(string nomeFile) =>
+        Esterno.ApriUrlAsync(Dati.Api.UrlAllegatoNews(nomeFile));
+}

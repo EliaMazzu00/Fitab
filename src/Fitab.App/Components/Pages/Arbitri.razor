@@ -1,0 +1,109 @@
+@page "/arbitri"
+@inject FitabData Dati
+@inject NavigationManager Nav
+
+@* Albo degli arbitri iscritti. Il backend restituisce solo nome e una nota,
+   quindi la schermata resta volutamente essenziale: elenco e ricerca. *@
+
+<Intestazione Titolo="Albo arbitri" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("profilo"))" />
+
+<div class="contenuto">
+
+    <div class="ricerca">
+        <span class="ricerca__icona"><Icona Nome="cerca" Dimensione="20" /></span>
+        <input class="ricerca__input" type="search" placeholder="Cerca per cognome"
+               value="@_ricerca" @oninput="SuRicerca" />
+    </div>
+
+    @if (_arbitri is null)
+    {
+        <Scheletro Quante="6" />
+    }
+    else
+    {
+        <StatoDati Stato="_arbitri" InCorso="_inAggiornamento" SuAggiorna="Aggiorna" />
+
+        @if (_filtrati.Count == 0)
+        {
+            <StatoVuoto Titolo="Nessun arbitro trovato" NomeIcona="persona" />
+        }
+        else
+        {
+            <div class="testo-xs testo-tenue" style="margin-bottom:var(--sp-2)">
+                @_filtrati.Count arbitri
+            </div>
+
+            <div class="elenco">
+                @foreach (var a in _filtrati)
+                {
+                    <div class="voce" style="cursor:default">
+                        <Icona Nome="persona" Dimensione="22" />
+                        <span class="voce__testo selezionabile">
+                            <span class="troncato" style="display:block">@a.CognomeNome</span>
+                            @if (!string.IsNullOrWhiteSpace(a.Nota))
+                            {
+                                <span class="voce__sotto">@a.Nota</span>
+                            }
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private Cached<IReadOnlyList<Arbitro>>? _arbitri;
+    private IReadOnlyList<Arbitro> _filtrati = [];
+    private string _ricerca = "";
+    private bool _inAggiornamento;
+
+    protected override async Task OnInitializedAsync() => await Carica();
+
+    private async Task Carica(bool forza = false)
+    {
+        try
+        {
+            _arbitri = await Dati.ArbitriAsync(c => InvokeAsync(() =>
+            {
+                _arbitri = c;
+                Filtra();
+                StateHasChanged();
+            }), forza);
+        }
+        catch (Exception)
+        {
+            _arbitri = new Cached<IReadOnlyList<Arbitro>>([], DateTimeOffset.Now, false,
+                "Elenco non disponibile.");
+        }
+        finally
+        {
+            _inAggiornamento = false;
+            Filtra();
+        }
+    }
+
+    private void Filtra()
+    {
+        var tutti = _arbitri?.Valore ?? [];
+
+        _filtrati = string.IsNullOrWhiteSpace(_ricerca)
+            ? tutti
+            : tutti.Where(a => a.CognomeNome.Contains(
+                  _ricerca.Trim(), StringComparison.CurrentCultureIgnoreCase)).ToList();
+    }
+
+    private void SuRicerca(ChangeEventArgs e)
+    {
+        _ricerca = e.Value?.ToString() ?? "";
+        Filtra();
+    }
+
+    private async Task Aggiorna()
+    {
+        _inAggiornamento = true;
+        await Carica(forza: true);
+        StateHasChanged();
+    }
+}

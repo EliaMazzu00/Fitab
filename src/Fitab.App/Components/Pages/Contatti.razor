@@ -1,0 +1,134 @@
+@page "/contatti"
+@using Fitab.App.Servizi
+@inject AperturaEsterna Esterno
+@inject NavigationManager Nav
+
+@* Recapiti della federazione. Sono gli stessi dell'app attuale (classe
+   Contatti.js), dove pero' erano un tab nascosto (visible:false) raggiungibile
+   solo dal menu laterale. *@
+
+<Intestazione Titolo="Contatti" Indietro="true"
+             SuIndietro="@(() => Nav.NavigateTo("profilo"))" />
+
+<div class="contenuto">
+
+    <div class="scheda">
+        <div class="scheda__corpo" style="text-align:center">
+            <LogoFitab Classe="logo-accesso" />
+            <p class="testo-sm testo-secondario" style="margin-bottom:0">
+                Federazione Italiana Associate Burraco<br />
+                Associazione di Promozione Sociale
+            </p>
+        </div>
+    </div>
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Recapiti</span>
+        </div>
+
+        <div class="elenco">
+            <button class="voce" @onclick="@(() => Esterno.CercaSuMappaAsync(Indirizzo))">
+                <Icona Nome="luogo" Dimensione="22" />
+                <span class="voce__testo">
+                    @Indirizzo
+                    <span class="voce__sotto">Sede — apri nelle mappe</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce" @onclick="@(() => Esterno.ChiamaAsync("0532205442"))">
+                <Icona Nome="persona" Dimensione="22" />
+                <span class="voce__testo">
+                    0532 205442
+                    <span class="voce__sotto">Telefono</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce" @onclick="@(() => Esterno.ScriviEmailAsync("segreteria@fitab.it"))">
+                <Icona Nome="documento" Dimensione="22" />
+                <span class="voce__testo">
+                    segreteria@@fitab.it
+                    <span class="voce__sotto">Segreteria</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce" @onclick="@(() => Esterno.ScriviEmailAsync("presidenza@fitab.it"))">
+                <Icona Nome="documento" Dimensione="22" />
+                <span class="voce__testo">
+                    presidenza@@fitab.it
+                    <span class="voce__sotto">Presidenza</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce" @onclick="@(() => Esterno.ScriviEmailAsync("fitab1@legalmail.it"))">
+                <Icona Nome="documento" Dimensione="22" />
+                <span class="voce__testo">
+                    fitab1@@legalmail.it
+                    <span class="voce__sotto">PEC</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+        </div>
+    </section>
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Online</span>
+        </div>
+
+        <div class="elenco">
+            <button class="voce" @onclick="@(() => Esterno.ApriUrlAsync("https://www.fitab.it"))">
+                <Icona Nome="cerca" Dimensione="22" />
+                <span class="voce__testo">
+                    www.fitab.it
+                    <span class="voce__sotto">Sito ufficiale</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce"
+                    @onclick="@(() => Esterno.ApriUrlAsync("https://www.facebook.com/Fitab-859393070898579/"))">
+                <Icona Nome="persona" Dimensione="22" />
+                <span class="voce__testo">
+                    Facebook
+                    <span class="voce__sotto">Pagina ufficiale</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+
+            <button class="voce"
+                    @onclick="@(() => Esterno.ApriUrlAsync("https://www.fitab.it/DocumentiFederazione/App/PrivacyApp.pdf"))">
+                <Icona Nome="documento" Dimensione="22" />
+                <span class="voce__testo">
+                    Informativa privacy
+                    <span class="voce__sotto">PDF</span>
+                </span>
+                <Icona Nome="avanti" Dimensione="18" />
+            </button>
+        </div>
+    </section>
+
+    <section class="sezione">
+        <div class="sezione__testata">
+            <span class="sezione__titolo">Affiliazione</span>
+        </div>
+
+        <div class="scheda">
+            <div class="scheda__corpo" style="text-align:center">
+                <img class="logo-affiliazione" src="img/aics-logo.png"
+                     alt="AICS — Associazione Italiana Cultura Sport" />
+                <p class="testo-xs testo-tenue" style="margin:var(--sp-3) 0 0">
+                    FITAB-APS è affiliata all'Associazione Italiana Cultura Sport
+                </p>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private const string Indirizzo = "Via Aldighieri 10, 44121 Ferrara";
+}
