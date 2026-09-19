@@ -11,6 +11,27 @@
    corpo base 17px (non 14/16 come i default web), interlinea generosa,
    aree toccabili mai sotto i 48px. */
 
+/* I due caratteri viaggiano dentro l'app: nessuna chiamata a Google, nessun
+   tracciamento, e funzionano senza rete come tutto il resto. Sono entrambi
+   variabili, quindi un file solo copre tutti i pesi: 80 KB in due.
+   Licenza SIL Open Font, il testo sta accanto ai file in wwwroot/font/. */
+
+@font-face {
+    font-family: 'Source Sans 3';
+    src: url('../font/source-sans-3.woff2') format('woff2-variations');
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Source Serif 4';
+    src: url('../font/source-serif-4.woff2') format('woff2-variations');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
     /* --- Marchio --- */
     --blu: #0055a3;
@@ -49,21 +70,30 @@
     --blu-info: #1565c0;
 
     /* --- Superfici --- */
-    --sfondo: #f4f5f6;
+    --sfondo: #f3f1ec;
     --superficie: #ffffff;
-    --superficie-alt: #fafbfb;
-    --bordo: #e2e5e8;
-    --bordo-forte: #c9ced3;
+    --superficie-alt: #faf8f4;
+    --bordo: #e4dfd6;
+    --bordo-forte: #c7c0b4;
 
     /* --- Testo --- */
-    --testo: #1a1c1e;
-    --testo-secondario: #5a6169;
-    --testo-tenue: #868d95;
+    --testo: #1d1b17;
+    --testo-secondario: #5b564d;
+    --testo-tenue: #878175;
     --testo-su-scuro: #ffffff;
 
-    /* --- Tipografia --- */
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-            "Helvetica Neue", Arial, sans-serif;
+    /* --- Tipografia ---
+       Il carattere di sistema faceva sembrare l'app uguale a ogni altra, perche'
+       letteralmente lo era. Source Sans 3 e Source Serif 4 sono disegnati come
+       una sola famiglia: il serif porta il tono istituzionale sui titoli, il
+       sans regge il corpo e soprattutto le cifre, di cui questa app e' piena.
+       Il fallback resta il carattere di sistema, se il woff2 non caricasse. */
+    --font: 'Source Sans 3', -apple-system, BlinkMacSystemFont, "Segoe UI",
+            Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    /* Titoli di schermata e di sezione. Mai sui numeri: le cifre restano nel
+       sans, che le ha tabulari e allineate. */
+    --font-titoli: 'Source Serif 4', Georgia, "Times New Roman", serif;
 
     --testo-xs: 0.8125rem;   /* 13px - solo metadati */
     --testo-sm: 0.9375rem;   /* 15px */
@@ -89,8 +119,11 @@
     --raggio-sm: 8px;
     --raggio-pill: 999px;
 
-    --ombra: 0 1px 2px rgba(0, 0, 0, .06), 0 2px 8px rgba(0, 0, 0, .05);
-    --ombra-alta: 0 2px 4px rgba(0, 0, 0, .08), 0 8px 24px rgba(0, 0, 0, .10);
+    /* Le schede non galleggiano piu'. La classifica di un torneo e' un foglio
+       risultati, non un pannello di dashboard: un filetto la delimita meglio di
+       un'ombra diffusa, che era il tratto piu' anonimo di tutta l'interfaccia. */
+    --ombra: 0 1px 0 rgba(29, 27, 23, .04);
+    --ombra-alta: 0 2px 12px rgba(29, 27, 23, .10);
 
     /* --- Misure --- */
     --tocco-min: 48px;   /* area toccabile minima */
@@ -120,22 +153,22 @@
         --rosso: #ef5350;
         --rosso-tenue: #2b1514;
 
-        --sfondo: #121416;
-        --superficie: #1c1f22;
-        --superficie-alt: #23272b;
-        --bordo: #2e3338;
-        --bordo-forte: #3d444a;
+        --sfondo: #141311;
+        --superficie: #1d1b18;
+        --superficie-alt: #24221e;
+        --bordo: #302d28;
+        --bordo-forte: #403c36;
 
-        --testo: #e8eaed;
-        --testo-secondario: #a8b0b8;
-        --testo-tenue: #7c848c;
+        --testo: #eae7e1;
+        --testo-secondario: #b0aaa1;
+        --testo-tenue: #847e75;
 
         --titolo-sfondo: var(--superficie);
         --titolo-testo: var(--testo);
         --evidenzia: rgba(255, 193, 7, .20);
 
-        --ombra: 0 1px 2px rgba(0, 0, 0, .4), 0 2px 8px rgba(0, 0, 0, .3);
-        --ombra-alta: 0 2px 4px rgba(0, 0, 0, .5), 0 8px 24px rgba(0, 0, 0, .4);
+        --ombra: 0 1px 0 rgba(0, 0, 0, .35);
+        --ombra-alta: 0 2px 12px rgba(0, 0, 0, .45);
     }
 }
 
@@ -151,14 +184,14 @@
     --negativo: #ef5350;
     --rosso: #ef5350;
     --rosso-tenue: #2b1514;
-    --sfondo: #121416;
-    --superficie: #1c1f22;
-    --superficie-alt: #23272b;
-    --bordo: #2e3338;
-    --bordo-forte: #3d444a;
-    --testo: #e8eaed;
-    --testo-secondario: #a8b0b8;
-    --testo-tenue: #7c848c;
+    --sfondo: #141311;
+    --superficie: #1d1b18;
+    --superficie-alt: #24221e;
+    --bordo: #302d28;
+    --bordo-forte: #403c36;
+    --testo: #eae7e1;
+    --testo-secondario: #b0aaa1;
+    --testo-tenue: #847e75;
     --titolo-sfondo: var(--superficie);
     --titolo-testo: var(--testo);
     --evidenzia: rgba(255, 193, 7, .20);

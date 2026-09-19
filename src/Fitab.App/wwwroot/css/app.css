@@ -22,7 +22,14 @@ body {
 
 #app { height: 100%; }
 
-h1, h2, h3, h4 { margin: 0; font-weight: var(--peso-forte); line-height: 1.25; }
+/* Il serif porta il tono istituzionale sui titoli. Non tocca mai le cifre:
+   quelle restano nel sans, dove sono tabulari e si incolonnano. */
+h1, h2, h3, h4 {
+    margin: 0;
+    font-family: var(--font-titoli);
+    font-weight: 600;
+    line-height: 1.25;
+}
 p { margin: 0 0 var(--sp-3); }
 ul { margin: 0; padding: 0; list-style: none; }
 
@@ -80,6 +87,8 @@ a { color: var(--primario); text-decoration: none; }
 }
 
 .intestazione__titolo {
+    font-family: var(--font-titoli);
+    font-weight: 600;
     flex: 1;
     min-width: 0;
     margin: 0;
@@ -219,6 +228,8 @@ a { color: var(--primario); text-decoration: none; }
 .scheda__corpo { padding: var(--sp-4); }
 
 .scheda__titolo {
+    font-family: var(--font-titoli);
+    font-weight: 600;
     font-size: var(--testo-lg);
     font-weight: var(--peso-forte);
     margin-bottom: var(--sp-1);
@@ -245,6 +256,8 @@ a { color: var(--primario); text-decoration: none; }
 }
 
 .sezione__titolo {
+    font-family: var(--font-titoli);
+    font-weight: 600;
     font-size: var(--testo-lg);
     font-weight: var(--peso-forte);
 }
@@ -367,6 +380,8 @@ a { color: var(--primario); text-decoration: none; }
 }
 
 .stato-vuoto__titolo {
+    font-family: var(--font-titoli);
+    font-weight: 600;
     font-size: var(--testo-lg);
     font-weight: var(--peso-forte);
     color: var(--testo);
@@ -541,7 +556,8 @@ a { color: var(--primario); text-decoration: none; }
 
 .classifica {
     background: var(--superficie);
-    border-radius: var(--raggio);
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio-sm);
     overflow: hidden;
     box-shadow: var(--ombra);
 }
@@ -1224,11 +1240,14 @@ a { color: var(--primario); text-decoration: none; }
     margin-bottom: var(--sp-3);
     padding: var(--sp-3) var(--sp-4);
     background: var(--superficie);
-    border-radius: var(--raggio);
+    border: 1px solid var(--bordo);
+    border-radius: var(--raggio-sm);
     box-shadow: var(--ombra);
 }
 
 .riepilogo__titolo {
+    font-family: var(--font-titoli);
+    font-weight: 600;
     font-size: var(--testo-base);
     font-weight: var(--peso-forte);
 }
