@@ -1215,3 +1215,60 @@ a { color: var(--primario); text-decoration: none; }
     color: var(--su-primario);
     font-weight: var(--peso-forte);
 }
+
+/* ===================================================== Classifica generale */
+
+/* Intestazione della vista generale: dice a che punto del torneo siamo, che e'
+   la prima cosa da capire quando si apre l'app a meta' serata. */
+.riepilogo {
+    margin-bottom: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--superficie);
+    border-radius: var(--raggio);
+    box-shadow: var(--ombra);
+}
+
+.riepilogo__titolo {
+    font-size: var(--testo-base);
+    font-weight: var(--peso-forte);
+}
+
+.riepilogo__sotto {
+    margin-top: 2px;
+    font-size: var(--testo-xs);
+    color: var(--testo-secondario);
+}
+
+.riepilogo__turno {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--bordo);
+}
+
+/* Il chip "Generale" e' piu' largo degli altri: e' una vista, non un turno. */
+.turno--generale { font-weight: var(--peso-forte); }
+
+/* Dove si sta giocando adesso, dentro il riquadro della propria posizione. */
+.turno-corrente {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--primario);
+}
+
+.turno-corrente__riga {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+/* VP guadagnati nell'ultimo turno concluso, sotto il totale. */
+.riga-live__guadagno {
+    font-size: var(--testo-xs);
+    font-weight: var(--peso-medio);
+    color: var(--positivo);
+}

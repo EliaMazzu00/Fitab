@@ -25,6 +25,14 @@ var dati = fornitore.GetRequiredService<FitabData>();
 
 var esiti = new List<(string Nome, bool Ok, string Dettaglio, long Ms)>();
 
+// Quanti tornei live passare in rassegna nel controllo della classifica generale.
+// Di norma bastano otto. Per passarli tutti, quando si tocca la logica dei turni e si
+// vogliono vedere anche i casi rari (gironi multipli, campo dispari, campo che cambia
+// numero fra un turno e l'altro):
+//
+//   dotnet run --project src/Fitab.Probe -- 60
+var quantiCampioni = args.Length > 0 && int.TryParse(args[0], out var n) ? n : 8;
+
 async Task Prova(string nome, Func<Task<string>> azione)
 {
     var cronometro = Stopwatch.StartNew();
@@ -136,7 +144,158 @@ if (torneo is not null)
             return $"turno {turno.Codice}: {righe.Count} coppie, 1ª {Taglia(prima.DescrizioneCoppia, 30)} " +
                    $"VP {prima.VP} / MP {prima.MP}";
         });
+
+        var sequenza = turni.InOrdineDiGioco().ToList();
+
+        await Prova("Ordine turni", () =>
+        {
+            if (sequenza.Count == 0) throw new InvalidOperationException("nessun turno giocato");
+            var etichette = string.Join(" < ", sequenza.Select(t => t.Codice));
+            return Task.FromResult($"{etichette}");
+        });
+
+        if (sequenza.Count > 0)
+        {
+            var ultimo = sequenza[^1];
+            var penultimo = sequenza.Count > 1 ? sequenza[^2] : null;
+
+            await Prova("Classifica generale", async () =>
+            {
+                var righe = await api.GetLiveClassificaAsync(torneo.Codice, ultimo.Codice, ultimo.Girone);
+                var prima = penultimo is null
+                    ? null
+                    : await api.GetLiveClassificaAsync(torneo.Codice, penultimo.Codice, penultimo.Girone);
+
+                var generale = ClassificaGenerale.Calcola(torneo, ultimo, righe, prima);
+
+                // Le due invarianti — somma MP nulla e somma VP pari a coppie x 10 x
+                // turni — valgono sul campo intero. Sono verificabili solo a girone
+                // unico e senza coppia fittizia: i gironi si formano per fascia di
+                // classifica e si scambiano i punti fra loro, la coppia fittizia
+                // regala punti che nessuno perde.
+                var gironi = turni.Gironi();
+                var campoIntero = gironi.Count == 1 && !generale.ConCoppiaFittizia;
+
+                var sommaMp = generale.Righe.Sum(r => r.MP);
+                if (sommaMp != 0 && campoIntero)
+                    throw new InvalidOperationException($"somma MP {sommaMp}, attesa 0");
+
+                var nota = "";
+
+                if (campoIntero && generale.ConteggioTurniAttendibile)
+                {
+                    var atteso = generale.Righe.Count * 10 * generale.TurniGiocati;
+                    var somma = generale.Righe.Sum(r => r.VP);
+                    var scarto = Math.Abs(somma - atteso);
+                    if (scarto > generale.Righe.Count)
+                        throw new InvalidOperationException(
+                            $"somma VP {somma}, attesa ~{atteso}: VP forse non piu' cumulativi");
+                    nota = $", somma MP 0, scarto VP {scarto}";
+                }
+                else
+                {
+                    nota = generale.ConCoppiaFittizia
+                        ? ", invarianti non verificabili (campo dispari)"
+                        : $", invarianti non verificabili ({gironi.Count} gironi)";
+                }
+
+                var testa = generale.Righe[0];
+                return $"{generale.Descrizione}: {generale.Righe.Count} coppie, " +
+                       $"1ª {Taglia(testa.DescrizioneCoppia, 24)} {testa.VP} VP{nota}";
+            });
+
+            await Prova("Turno in corso", async () =>
+            {
+                var righe = await api.GetLiveClassificaAsync(torneo.Codice, ultimo.Codice, ultimo.Girone);
+                var generale = ClassificaGenerale.Calcola(torneo, ultimo, righe);
+
+                if (!generale.TurnoInCorso)
+                    return $"torneo concluso ({generale.TurniGiocati}/{generale.TurniTotali} turni)";
+
+                if (!generale.AbbinamentiNoti)
+                    return $"{generale.NumeroTurnoInCorso}° turno in corso, " +
+                           "abbinamenti non ricavabili (il prossimo turno e' Mitchell)";
+
+                var tavolo = generale.TavoliInCorso[0];
+
+                return $"{generale.NumeroTurnoInCorso}° turno, {generale.TavoliInCorso.Count} tavoli — " +
+                       $"tav.1 {Taglia(tavolo.Prima.DescrizioneCoppia, 20)} " +
+                       $"vs {Taglia(tavolo.Seconda.DescrizioneCoppia, 20)}";
+            });
+        }
     }
+}
+
+// La classifica generale si regge su due deduzioni fragili — l'ordine dei turni e il
+// conteggio dei turni giocati — e i casi che le mettono in crisi (gironi multipli,
+// campo che cambia numero fra un turno e l'altro) non compaiono sul torneo campione.
+// Qui si passano in rassegna alcuni tornei veri e si controlla che regga tutto.
+
+if (tornei.Length > 0)
+{
+    await Prova("Generale (a campione)", async () =>
+    {
+        var esaminati = 0;
+        var conGironi = 0;
+        var nonAttendibili = 0;
+        var conAbbinamenti = 0;
+        var conFittizia = 0;
+
+        // Campionatura distribuita su tutto l'elenco, estremi compresi, e non i primi
+        // otto: l'elenco e' ordinato per data e i tornei a piu' gironi — quelli che
+        // mettono davvero alla prova il conteggio dei turni — stanno in fondo.
+        var campioni = Math.Clamp(quantiCampioni, 2, tornei.Length);
+        var campione = Enumerable.Range(0, campioni)
+            .Select(i => tornei[i * (tornei.Length - 1) / (campioni - 1)])
+            .DistinctBy(t => t.Codice)
+            .ToList();
+
+        foreach (var t in campione)
+        {
+            var turniT = await api.GetLiveTurniAsync(t.Codice);
+            var gironi = turniT.Gironi();
+
+            foreach (var girone in gironi)
+            {
+                var sequenza = turniT.Where(x => x.Girone == girone).InOrdineDiGioco().ToList();
+                if (sequenza.Count == 0) continue;
+
+                var ultimoT = sequenza[^1];
+                var righeT = await api.GetLiveClassificaAsync(t.Codice, ultimoT.Codice, girone);
+                if (righeT.Count == 0) continue;
+
+                var precedentiT = sequenza.Count > 1
+                    ? await api.GetLiveClassificaAsync(t.Codice, sequenza[^2].Codice, girone)
+                    : null;
+
+                var g = ClassificaGenerale.Calcola(t, ultimoT, righeT, precedentiT);
+
+                if (g.Righe.Sum(r => r.MP) != 0 && gironi.Count == 1 && !g.ConCoppiaFittizia)
+                    throw new InvalidOperationException(
+                        $"\"{Taglia(t.Descrizione, 24)}\" girone {girone}: somma MP non nulla");
+
+                if (g.Righe.Count != righeT.Count)
+                    throw new InvalidOperationException("righe perse nel calcolo");
+
+                // Ogni tavolo del turno in corso deve avere esattamente due coppie.
+                foreach (var tavolo in g.TavoliInCorso)
+                    if (tavolo.Prima.ChiaveCoppia == tavolo.Seconda.ChiaveCoppia)
+                        throw new InvalidOperationException($"tavolo {tavolo.Numero} con una coppia sola");
+
+                esaminati++;
+                if (gironi.Count > 1) conGironi++;
+                if (!g.ConteggioTurniAttendibile) nonAttendibili++;
+                if (g.AbbinamentiNoti) conAbbinamenti++;
+                if (g.ConCoppiaFittizia) conFittizia++;
+            }
+        }
+
+        if (esaminati == 0) throw new InvalidOperationException("nessuna classifica esaminata");
+
+        return $"{esaminati} classifiche ok — {conGironi} a piu' gironi, " +
+               $"{conAbbinamenti} con abbinamenti, {conFittizia} a campo dispari, " +
+               $"{nonAttendibili} con conteggio turni non attendibile";
+    });
 }
 
 // --- Login: senza credenziali verifichiamo solo il rifiuto -------------------

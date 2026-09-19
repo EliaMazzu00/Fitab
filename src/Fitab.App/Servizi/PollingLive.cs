@@ -35,28 +35,20 @@ public sealed record EsitoLive(
 /// pagina non si muove.
 /// </para>
 /// <para>
-/// Il server e' di terzi, quindi il polling e' volutamente prudente: interroga
-/// solo il turno che l'utente sta guardando, si sospende quando l'app va in
-/// background e rallenta progressivamente dopo una serie di errori.
+/// Segue un turno preciso, quello che l'utente ha aperto. Per la classifica
+/// generale, che deve invece seguire l'ultimo turno concluso man mano che il
+/// torneo avanza, c'e' <see cref="PollingGenerale"/>.
 /// </para>
 /// </summary>
-public sealed class PollingLive(IFitabApi api) : IAsyncDisposable
+public sealed class PollingLive(IFitabApi api) : PollingPrudente
 {
-    private CancellationTokenSource? _cts;
-    private Task? _ciclo;
     private Dictionary<string, LiveRiga> _precedenti = [];
     private bool _primoGiro = true;
-    private int _erroriConsecutivi;
 
     private string _idTorneo = "";
     private string _turno = "";
     private string _girone = "";
     private string? _tessera;
-
-    /// <summary>Cadenza base. Su una serata di burraco i tavoli non cambiano piu' spesso.</summary>
-    public TimeSpan Intervallo { get; set; } = TimeSpan.FromSeconds(25);
-
-    public bool Sospeso { get; private set; }
 
     public event Func<EsitoLive, Task>? Aggiornato;
 
@@ -72,76 +64,20 @@ public sealed class PollingLive(IFitabApi api) : IAsyncDisposable
         _tessera = tessera;
         _precedenti = [];
         _primoGiro = true;
-        _erroriConsecutivi = 0;
+        AzzeraErrori();
     }
 
-    public void Avvia()
-    {
-        Ferma();
-        _cts = new CancellationTokenSource();
-        _ciclo = Task.Run(() => Ciclo(_cts.Token));
-    }
-
-    public void Ferma()
-    {
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = null;
-        _ciclo = null;
-    }
-
-    /// <summary>Sospende il polling quando l'app non e' in primo piano.</summary>
-    public void Sospendi() => Sospeso = true;
-
-    public void Riprendi() => Sospeso = false;
-
-    private async Task Ciclo(CancellationToken ct)
-    {
-        // Primo giro subito, poi a cadenza.
-        await Scarica(ct);
-
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(IntervalloEffettivo(), ct);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-
-            if (Sospeso) continue;
-            await Scarica(ct);
-        }
-    }
-
-    /// <summary>
-    /// Dopo errori ripetuti allunga l'attesa invece di martellare un server
-    /// che evidentemente non sta rispondendo.
-    /// </summary>
-    private TimeSpan IntervalloEffettivo() => _erroriConsecutivi switch
-    {
-        0 => Intervallo,
-        1 => Intervallo * 2,
-        2 => Intervallo * 4,
-        _ => TimeSpan.FromMinutes(5)
-    };
-
-    /// <summary>Aggiornamento immediato richiesto dall'utente.</summary>
-    public Task AggiornaOra(CancellationToken ct = default) => Scarica(ct);
-
-    private async Task Scarica(CancellationToken ct)
+    protected override async Task Scarica(CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_idTorneo) || string.IsNullOrEmpty(_turno)) return;
 
         try
         {
             var righe = await api.GetLiveClassificaAsync(_idTorneo, _turno, _girone, _tessera, ct);
-            _erroriConsecutivi = 0;
+            Riuscito();
 
             var risultato = Confronta(righe);
-            _precedenti = righe.ToDictionary(r => r.Codice);
+            _precedenti = righe.GroupBy(r => r.ChiaveCoppia).ToDictionary(g => g.Key, g => g.First());
             _primoGiro = false;
 
             if (Aggiornato is not null)
@@ -153,7 +89,7 @@ public sealed class PollingLive(IFitabApi api) : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _erroriConsecutivi++;
+            Fallito();
 
             if (Aggiornato is not null)
             {
@@ -174,7 +110,7 @@ public sealed class PollingLive(IFitabApi api) : IAsyncDisposable
 
         foreach (var riga in righe.OrderBy(r => r.Posizione))
         {
-            if (_precedenti.TryGetValue(riga.Codice, out var prima))
+            if (_precedenti.TryGetValue(riga.ChiaveCoppia, out var prima))
             {
                 var cambiata = prima.Posizione != riga.Posizione
                                || prima.VP != riga.VP
@@ -191,18 +127,5 @@ public sealed class PollingLive(IFitabApi api) : IAsyncDisposable
         }
 
         return risultato;
-    }
-
-    private static string Descrivi(Exception ex) => ex switch
-    {
-        TaskCanceledException or TimeoutException => "Il server non risponde.",
-        HttpRequestException => "Connessione assente.",
-        _ => "Aggiornamento non riuscito."
-    };
-
-    public ValueTask DisposeAsync()
-    {
-        Ferma();
-        return ValueTask.CompletedTask;
     }
 }

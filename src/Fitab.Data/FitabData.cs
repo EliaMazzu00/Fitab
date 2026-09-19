@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Fitab.Core.Abstractions;
 using Fitab.Core.Models;
 using Fitab.Data.Cache;
@@ -275,6 +275,18 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
         bool forza = false, CancellationToken ct = default) =>
         CaricaAsync($"live:turni:{idTorneo}:{tessera ?? "-"}", Durate.Live,
             c => api.GetLiveTurniAsync(idTorneo, tessera, c), suAggiornamento, forza, ct);
+
+    /// <summary>
+    /// Classifica di un turno. Da ricordare: VP e MP che arrivano qui sono cumulativi
+    /// sull'intero torneo, non del singolo turno — sull'ultimo turno pubblicato questa
+    /// e' gia' la classifica generale. Vedi <see cref="ClassificaGenerale"/>.
+    /// </summary>
+    public Task<Cached<IReadOnlyList<LiveRiga>>> LiveClassificaAsync(
+        string idTorneo, string turno, string girone, string? tessera = null,
+        Action<Cached<IReadOnlyList<LiveRiga>>>? suAggiornamento = null,
+        bool forza = false, CancellationToken ct = default) =>
+        CaricaAsync($"live:classifica:{idTorneo}:{turno}:{girone}:{tessera ?? "-"}", Durate.Live,
+            c => api.GetLiveClassificaAsync(idTorneo, turno, girone, tessera, c), suAggiornamento, forza, ct);
 
     /// <summary>Accesso diretto all'API, senza cache: usato dal polling della schermata live.</summary>
     public IFitabApi Api => api;
