@@ -1,4 +1,4 @@
-using Fitab.Data;
+﻿using Fitab.Data;
 
 namespace Fitab.App.Servizi;
 
@@ -7,7 +7,7 @@ namespace Fitab.App.Servizi;
 /// <para>
 /// Ha senso per una ragione precisa: la graduatoria nazionale costa ~24 secondi
 /// per pagina lato server, mentre quella filtrata per circolo sta sotto il
-/// secondo (API-FITAB.md §9). Aspettare di aprire la schermata per scaricarla
+/// secondo. Aspettare di aprire la schermata per scaricarla
 /// significa mezzo minuto di attesa; farlo all'avvio significa trovarla gia'
 /// pronta. E la classifica non cambia di ora in ora: la cache dura 24 ore,
 /// quindi questo lavoro si fa una volta al giorno.

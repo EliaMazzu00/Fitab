@@ -19,8 +19,8 @@ public static class MauiProgram
 
 		builder.Services.AddMauiBlazorWebView();
 
-		// Web service FITAB (cms.fitab.it). Vedi API-FITAB.md per la mappa
-		// degli endpoint e i tempi di risposta misurati.
+		// Web service FITAB (cms.fitab.it): la forma degli endpoint la conosce
+		// solo Fitab.Api, che fa da anti-corruption layer.
 		builder.Services.AddFitabApi();
 
 		// Cache locale: l'app deve restare consultabile senza rete.

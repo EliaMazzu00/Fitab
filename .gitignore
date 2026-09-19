@@ -14,6 +14,13 @@ build/
 # Cartella di lavoro per l'estrazione dell'APK originale
 extract/
 
+# Note di reverse engineering sul backend e sull'app di Evin srl: documentano un
+# servizio di terzi, credenziali comprese, e riportano codice estratto dall'app
+# pubblicata. Il repository e' pubblico, quindi restano fuori.
+API-FITAB.md
+STRUTTURA-APP.md
+PROPOSTA-2.0.md
+
 # IDE
 .vs/
 .idea/

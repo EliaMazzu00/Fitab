@@ -3,13 +3,10 @@
 App dimostrativa per FITAB-APS. .NET MAUI Blazor, componenti Blazor propri
 (nessuna libreria UI), dati dai web service `cms.fitab.it`.
 
-Documenti di riferimento nella cartella superiore:
+Le note di reverse engineering sul backend e sull'app esistente — che non sono
+nostre e riguardano un servizio di terzi — sono tenute fuori dal repository.
 
-| File | Contenuto |
-|---|---|
-| `API-FITAB.md` | mappa degli endpoint, modello dati, prestazioni misurate |
-| `STRUTTURA-APP.md` | struttura funzionale dell'app attuale (reverse engineering) |
-| `PROPOSTA-2.0.md` | scelte tecniche e di prodotto |
+Per installare la demo: [INSTALLAZIONE.md](INSTALLAZIONE.md).
 
 ## Progetti
 
@@ -63,8 +60,8 @@ dotnet run --project src/Fitab.Probe
   overlays` quando il percorso supera i 260 caratteri. Se succede: `rm -rf
   src/Fitab.App/obj` e ricompilare; la soluzione definitiva è spostare il
   progetto in un percorso corto e senza spazi (es. `C:\dev\Fitab`).
-- **Notifiche push**: fuori scope, richiedono il progetto Firebase di Evin.
-  L'alternativa è descritta in `API-FITAB.md` §7.
+- **Notifiche push**: fuori scope. Dipendono dal progetto Firebase dell'app
+  attuale, che non è nostro.
 
 ## Marchi e grafica
 

@@ -20,7 +20,7 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
     private readonly ConcurrentDictionary<string, Task> _aggiornamentiInCorso = new();
 
     // Durate di validita'. La classifica nazionale e' lunga di proposito: costa
-    // ~24 secondi a pagina lato server (vedi API-FITAB.md §9) e cambia solo quando
+    // ~24 secondi a pagina lato server e cambia solo quando
     // la federazione elabora i tornei.
     public static class Durate
     {

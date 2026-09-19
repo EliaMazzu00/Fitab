@@ -1,4 +1,4 @@
-@page "/classifiche/{Tipo:int}"
+﻿@page "/classifiche/{Tipo:int}"
 @using Fitab.App.Servizi
 @inject FitabData Dati
 @inject SessioneUtente Utente
@@ -8,7 +8,7 @@
 
    Vincolo che detta il comportamento di questa pagina: la graduatoria federale
    non filtrata costa ~24 secondi per pagina da 50 lato server, mentre filtrata
-   per circolo risponde in meno di un secondo (API-FITAB.md §9). Quindi:
+   per circolo risponde in meno di un secondo. Quindi:
    - la prima apertura avvisa dell'attesa invece di lasciare l'utente davanti
      a uno spinner muto;
    - il risultato resta in cache 24 ore, cosi' le volte successive e' immediata;
