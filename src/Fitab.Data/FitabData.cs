@@ -288,6 +288,23 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
         CaricaAsync($"live:classifica:{idTorneo}:{turno}:{girone}:{tessera ?? "-"}", Durate.Live,
             c => api.GetLiveClassificaAsync(idTorneo, turno, girone, tessera, c), suAggiornamento, forza, ct);
 
+    /// <summary>
+    /// Fotografia dell'ultimo stato conosciuto di un torneo live, letta <b>solo dal
+    /// disco</b>: non tocca la rete e torna null se non c'e' nulla. Serve al primo
+    /// disegno della schermata, che cosi' non resta vuota ad aspettare il server.
+    /// </summary>
+    public Task<Cached<IstantaneaLive>?> IstantaneaLiveAsync(
+        string idTorneo, string? tessera = null, CancellationToken ct = default) =>
+        cache.LeggiAsync<IstantaneaLive>(ChiaveIstantanea(idTorneo, tessera), ct);
+
+    /// <summary>Aggiorna la fotografia dopo un giro di polling riuscito.</summary>
+    public Task SalvaIstantaneaLiveAsync(
+        string idTorneo, string? tessera, IstantaneaLive istantanea, CancellationToken ct = default) =>
+        cache.ScriviAsync(ChiaveIstantanea(idTorneo, tessera), istantanea, ct);
+
+    private static string ChiaveIstantanea(string idTorneo, string? tessera) =>
+        $"live:istantanea:{idTorneo}:{tessera ?? "-"}";
+
     /// <summary>Accesso diretto all'API, senza cache: usato dal polling della schermata live.</summary>
     public IFitabApi Api => api;
 

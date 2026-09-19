@@ -109,7 +109,11 @@
     }
     else if (_vistaGenerale)
     {
-        @if (_generale is null)
+        @if (_generale is null && _generaleInCaricamento)
+        {
+            <Scheletro Quante="4" />
+        }
+        else if (_generale is null)
         {
             <StatoVuoto Titolo="Classifica non ancora disponibile"
                         Messaggio="Compare appena l'arbitro chiude il primo turno."
@@ -261,6 +265,10 @@
                 VP = punti vittoria · MP = punti match — entrambi sommati da inizio torneo
             </p>
         }
+    }
+    else if (_righe.Count == 0 && _turnoInCaricamento)
+    {
+        <Scheletro Quante="4" />
     }
     else if (_righe.Count == 0)
     {
@@ -419,6 +427,12 @@
 
     private ClassificaGenerale? _generale;
 
+    // "Sto aspettando la rete" e "non c'e' niente da mostrare" sono due cose
+    // diverse, e mostrare la seconda al posto della prima e' una bugia: diceva
+    // "Turno non ancora iniziato" su turni che i risultati ce li avevano gia'.
+    private bool _generaleInCaricamento = true;
+    private bool _turnoInCaricamento;
+
     private bool _soloMioTavolo;
 
     /// <summary>Tavolo del tesserato nel turno mostrato, se sta giocando qui.</summary>
@@ -453,30 +467,63 @@
         _polling = new PollingLive(Dati.Api);
         _polling.Aggiornato += SuAggiornamento;
 
-        _pollingGenerale = new PollingGenerale(Dati.Api);
+        _pollingGenerale = new PollingGenerale(Dati);
         _pollingGenerale.Aggiornato += SuAggiornamentoGenerale;
+
+        // Prima di toccare la rete: se di questo torneo abbiamo gia' una
+        // fotografia su disco, la schermata si disegna adesso.
+        await PrimoDisegnoDallaCache();
 
         await CaricaTorneoETurni();
         _caricamentoIniziale = false;
+    }
+
+    /// <summary>
+    /// Ridisegna l'ultimo stato conosciuto senza chiedere niente al server. Non e'
+    /// un'ottimizzazione di comodo: e' la differenza fra entrare e vedere la
+    /// classifica e entrare e guardare una schermata vuota per due secondi.
+    /// </summary>
+    private async Task PrimoDisegnoDallaCache()
+    {
+        try
+        {
+            var salvata = await Dati.IstantaneaLiveAsync(Codice, Utente.Tessera);
+            if (salvata is null) return;
+
+            var i = salvata.Valore;
+            _torneo = i.Torneo;
+            _turni = i.Turni;
+            _turniGiocati = _turni.InOrdineDiGioco().ToList();
+            _turnoScelto = _turniGiocati.FirstOrDefault(t => t.SonoQui)
+                           ?? _turniGiocati.LastOrDefault();
+
+            _generale = ClassificaGenerale.Calcola(i.Torneo, i.Ultimo, i.Righe, i.Precedenti);
+            _ultimoAggiornamento = salvata.AggiornatoIl;
+        }
+        catch (Exception)
+        {
+            // Fotografia illeggibile o scritta da una versione precedente: si
+            // riparte dalla rete, come prima.
+        }
     }
 
     private async Task CaricaTorneoETurni()
     {
         try
         {
-            var tornei = await Dati.LiveTorneiAsync(Utente.Tessera);
-            _torneo = tornei.Valore.FirstOrDefault(t => t.Codice == Codice);
+            // L'elenco turni non lo chiede piu' la pagina: lo porta il polling a
+            // ogni giro. Prima veniva scaricato due volte di fila all'ingresso.
+            if (_torneo is null)
+            {
+                var tornei = await Dati.LiveTorneiAsync(Utente.Tessera);
+                _torneo = tornei.Valore.FirstOrDefault(t => t.Codice == Codice);
+            }
 
-            var turni = await Dati.LiveTurniAsync(Codice, Utente.Tessera);
-            _turni = turni.Valore;
-            _turniGiocati = _turni.InOrdineDiGioco().ToList();
-
-            // Preselezione: il turno che sto giocando, altrimenti l'ultimo
-            // pubblicato, che e' quello che interessa a chi sta seguendo.
-            // Attenzione all'ordine: l'elenco arriva alla rinfusa e si chiude con
-            // lo pseudo-turno "0-P" degli abbinamenti, che non ha risultati.
-            _turnoScelto = _turniGiocati.FirstOrDefault(t => t.SonoQui)
-                           ?? _turniGiocati.LastOrDefault();
+            if (_torneo is null)
+            {
+                _errore = "Torneo non trovato.";
+                return;
+            }
 
             AvviaPollingGenerale();
         }
@@ -513,6 +560,7 @@
 
         _vistaGenerale = true;
         _errore = null;
+        _generaleInCaricamento = _generale is null;
 
         // La classifica calcolata resta in mano al polling: rientrando si rivede
         // subito, senza schermata vuota mentre arriva il primo giro.
@@ -528,6 +576,7 @@
 
         _vistaGenerale = false;
         _turnoScelto = turno;
+        _turnoInCaricamento = true;
         _righe = [];
         _miaRiga = null;
         _soloMioTavolo = false;
@@ -541,6 +590,7 @@
     {
         _righe = esito.Righe;
         _miaRiga = esito.Righe.FirstOrDefault(r => r.Dati.SonoIo);
+        _turnoInCaricamento = false;
         _ultimoAggiornamento = esito.Momento;
         _errore = esito.Errore;
         _inAggiornamento = false;
@@ -551,10 +601,20 @@
     private Task SuAggiornamentoGenerale(EsitoGenerale esito) => InvokeAsync(() =>
     {
         if (esito.Classifica is not null) _generale = esito.Classifica;
+        _generaleInCaricamento = false;
 
-        // Quando l'arbitro chiude un turno l'elenco si allunga: i chip vanno
-        // riallineati, altrimenti il turno nuovo non compare finche' non si esce.
-        if (esito.TurnoAppenaChiuso) _ = RicaricaTurni();
+        // I chip si riallineano da soli: quando l'arbitro chiude un turno, il giro
+        // successivo porta gia' l'elenco aggiornato.
+        if (esito.Turni is { Count: > 0 } turni)
+        {
+            _turni = turni;
+            _turniGiocati = turni.InOrdineDiGioco().ToList();
+
+            // Preselezione del turno singolo: quello che sto giocando, altrimenti
+            // l'ultimo concluso. Serve solo alla prima volta, poi decide l'utente.
+            _turnoScelto ??= _turniGiocati.FirstOrDefault(t => t.SonoQui)
+                             ?? _turniGiocati.LastOrDefault();
+        }
 
         _ultimoAggiornamento = esito.Momento;
         _errore = esito.Errore;
@@ -562,21 +622,6 @@
 
         StateHasChanged();
     });
-
-    private async Task RicaricaTurni()
-    {
-        try
-        {
-            var turni = await Dati.LiveTurniAsync(Codice, Utente.Tessera, forza: true);
-            _turni = turni.Valore;
-            _turniGiocati = _turni.InOrdineDiGioco().ToList();
-            await InvokeAsync(StateHasChanged);
-        }
-        catch (Exception)
-        {
-            // L'elenco dei chip resta quello di prima: la classifica e' gia' aggiornata.
-        }
-    }
 
     private async Task AggiornaOra()
     {
