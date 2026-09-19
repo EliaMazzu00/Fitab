@@ -60,7 +60,7 @@
 
         @foreach (var turno in _turniGiocati)
         {
-            <button class="turno @(!_vistaGenerale && turno.Codice == _turnoScelto?.Codice ? "attivo" : "")"
+            <button class="turno @(!_vistaGenerale && turno.Chiave == _turnoScelto?.Chiave ? "attivo" : "")"
                     @onclick="@(() => CambiaTurno(turno))">
                 @turno.EtichettaBreve
                 @if (turno.SonoQui)
@@ -494,8 +494,10 @@
             _torneo = i.Torneo;
             _turni = i.Turni;
             _turniGiocati = _turni.InOrdineDiGioco().ToList();
-            _turnoScelto = _turniGiocati.FirstOrDefault(t => t.SonoQui)
-                           ?? _turniGiocati.LastOrDefault();
+            // Il ripiego e' il turno della fotografia, non l'ultimo dell'elenco: con
+            // piu' gironi sono turni diversi, e la classifica che stiamo per
+            // disegnare appartiene a quello.
+            _turnoScelto = _turniGiocati.FirstOrDefault(t => t.SonoQui) ?? i.Ultimo;
 
             _generale = ClassificaGenerale.Calcola(i.Torneo, i.Ultimo, i.Righe, i.Precedenti);
             _ultimoAggiornamento = salvata.AggiornatoIl;
@@ -560,11 +562,15 @@
 
         _vistaGenerale = true;
         _errore = null;
-        _generaleInCaricamento = _generale is null;
 
         // La classifica calcolata resta in mano al polling: rientrando si rivede
-        // subito, senza schermata vuota mentre arriva il primo giro.
-        _generale = _pollingGenerale?.Ultima;
+        // subito, senza schermata vuota mentre arriva il primo giro. Ma solo se
+        // parla dello stesso girone: dopo un cambio di girone e' di un'altra
+        // competizione e mostrarla sarebbe sbagliato.
+        var girone = _turnoScelto?.Girone ?? "";
+        var precedente = _pollingGenerale?.Ultima;
+        _generale = precedente is not null && precedente.Girone == girone ? precedente : null;
+        _generaleInCaricamento = _generale is null;
         _ultimoAggiornamento = _generale is null ? null : _ultimoAggiornamento;
 
         AvviaPollingGenerale();
@@ -572,10 +578,21 @@
 
     private void CambiaTurno(LiveTurno turno)
     {
-        if (!_vistaGenerale && turno.Codice == _turnoScelto?.Codice) return;
+        // Il confronto e' sulla chiave, non sul codice: quando il torneo si spezza
+        // in gironi lo stesso "09-D" esiste per A, B, C e D. Confrontando i codici
+        // i quattro chip risultavano tutti attivi insieme e toccarne uno non
+        // faceva niente, perche' sembrava il turno gia' scelto.
+        if (!_vistaGenerale && turno.Chiave == _turnoScelto?.Chiave) return;
+
+        var cambiaGirone = turno.Girone != _turnoScelto?.Girone;
 
         _vistaGenerale = false;
         _turnoScelto = turno;
+
+        // Cambiando girone anche la generale parla di un'altra competizione:
+        // quella in memoria non vale piu'.
+        if (cambiaGirone) _generale = null;
+
         _turnoInCaricamento = true;
         _righe = [];
         _miaRiga = null;
