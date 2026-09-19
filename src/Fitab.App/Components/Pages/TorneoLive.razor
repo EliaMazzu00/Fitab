@@ -15,7 +15,7 @@
    sotto senza navigare, e i dati si aggiornano da soli. *@
 
 <Intestazione Titolo="@(_torneo?.Descrizione ?? "Torneo live")" Indietro="true"
-             SuIndietro="@(() => Nav.NavigateTo("live"))" />
+             SuIndietro="@(() => Nav.NavigateTo(Provenienza))" />
 
 @if (_torneo is not null)
 {
@@ -400,6 +400,33 @@
 
 @code {
     [Parameter] public string Codice { get; set; } = "";
+
+    /// <summary>Torneo di calendario da cui si e' arrivati, nella forma "anno_progressivo".</summary>
+    [Parameter, SupplyParameterFromQuery] public string? DaTorneo { get; set; }
+
+    /// <summary>Circolo da cui era partita la navigazione, se c'e' stato.</summary>
+    [Parameter, SupplyParameterFromQuery] public int? DaCircolo { get; set; }
+
+    /// <summary>
+    /// Dove riporta l'indietro: alla scheda del torneo da cui si e' arrivati —
+    /// che a sua volta sa tornare al circolo — oppure all'elenco delle dirette.
+    /// </summary>
+    private string Provenienza
+    {
+        get
+        {
+            var parti = DaTorneo?.Split('_') ?? [];
+
+            if (parti.Length != 2
+                || !int.TryParse(parti[0], out var anno)
+                || !int.TryParse(parti[1], out var progressivo))
+                return "live";
+
+            return DaCircolo is { } circolo
+                ? $"tornei/{anno}/{progressivo}?daCircolo={circolo}"
+                : $"tornei/{anno}/{progressivo}";
+        }
+    }
 
     private PollingLive? _polling;
     private PollingGenerale? _pollingGenerale;

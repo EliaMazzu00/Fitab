@@ -426,6 +426,12 @@ public sealed class FitabApiClient : IFitabApi
     public string UrlLocandinaTorneo(string nomeFile) =>
         new Uri(_options.UrlAllegatiCalendario, Uri.EscapeDataString(nomeFile)).ToString();
 
+    // Locandina e classifica finale stanno nella stessa cartella: il backend
+    // distingue i due file col suffisso "Ris" ("202400011.pdf" e
+    // "202400011Ris.pdf"), ma il nome ce lo da' lui e non lo deduciamo noi.
+    public string UrlRisultatiTorneo(string nomeFile) =>
+        new Uri(_options.UrlAllegatiCalendario, Uri.EscapeDataString(nomeFile)).ToString();
+
     // --- Infrastruttura -----------------------------------------------------
 
     private static bool Vuoto(string? s) => string.IsNullOrWhiteSpace(s);

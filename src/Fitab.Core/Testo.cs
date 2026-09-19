@@ -19,6 +19,21 @@ public static partial class Testo
     [GeneratedRegex(@"<[^>]+>")]
     private static partial Regex TagRegex();
 
+    // Meta' dei circoli ha, in "dove" e "quando si gioca", blocchi
+    // <div style="display:none"> pieni di spam SEO iniettato nel CMS anni fa:
+    // link a siti di terzi e testi osceni, che il browser non mostra perche'
+    // rispetta il display:none. Togliendo i tag finirebbero in chiaro dentro
+    // l'app, quindi il contenuto nascosto va eliminato *insieme* al suo
+    // contenitore, prima di ogni altra pulizia.
+    [GeneratedRegex(@"<(div|span|p)\b[^>]*?(?:display\s*:\s*none|visibility\s*:\s*hidden)[^>]*>.*?</\1\s*>",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex NascostoRegex();
+
+    // Stessa ragione per script e fogli di stile: il loro contenuto non e' testo.
+    [GeneratedRegex(@"<(script|style)\b[^>]*>.*?</\1\s*>",
+                    RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+    private static partial Regex NonTestoRegex();
+
     // Include lo spazio unificatore (U+00A0): il CMS ne inserisce a valanga
     // incollando da Word, e se resta com'e' il testo non va a capo dove dovrebbe.
     [GeneratedRegex(@"[ \t ]+")]
@@ -32,7 +47,9 @@ public static partial class Testo
     {
         if (string.IsNullOrWhiteSpace(html)) return "";
 
-        var testo = AcapoRegex().Replace(html, "\n");
+        var testo = NonTestoRegex().Replace(html, " ");
+        testo = NascostoRegex().Replace(testo, " ");
+        testo = AcapoRegex().Replace(testo, "\n");
         testo = TagRegex().Replace(testo, "");
         testo = WebUtility.HtmlDecode(testo);
         testo = SpaziRegex().Replace(testo, " ");

@@ -5,7 +5,7 @@
 @inject AperturaEsterna Esterno
 @inject NavigationManager Nav
 
-<Intestazione Titolo="Torneo" Indietro="true" SuIndietro="@(() => Nav.NavigateTo("tornei"))" />
+<Intestazione Titolo="Torneo" Indietro="true" SuIndietro="@(() => Nav.NavigateTo(Provenienza))" />
 
 <div class="contenuto">
 
@@ -86,12 +86,45 @@
             </section>
         }
 
-        @if (t.HaLocandina)
+        @* --- Risultati ---
+
+           Due strade, nessuna garantita: il PDF della classifica finale, che la
+           federazione pubblica di rado, e la classifica live, che il backend
+           tiene solo per una settimana circa. Quando non c'e' ne' l'una ne'
+           l'altra lo diciamo, invece di lasciare cercare. *@
+
+        @if (t.HaRisultati)
         {
             <button class="pulsante pulsante--largo" style="margin-top:var(--sp-4)"
+                    @onclick="@(() => Esterno.ApriUrlAsync(Dati.Api.UrlRisultatiTorneo(t.LinkRisultati!)))">
+                <Icona Nome="medaglia" Dimensione="20" /> Apri la classifica finale
+            </button>
+        }
+
+        @foreach (var live in _live)
+        {
+            <button class="pulsante @(t.HaRisultati ? "pulsante--secondario" : "") pulsante--largo"
+                    style="margin-top:var(--sp-3)"
+                    @onclick="@(() => Nav.NavigateTo($"live/{live.Codice}?daTorneo={Anno}_{Progressivo}{RitornoAlCircolo}"))">
+                <Icona Nome="diretta" Dimensione="20" />
+                @(live.EDiOggi ? "Segui i risultati in diretta" : "Risultati turno per turno")
+            </button>
+        }
+
+        @if (t.HaLocandina)
+        {
+            <button class="pulsante @(t.HaRisultati || _live.Count > 0 ? "pulsante--secondario" : "") pulsante--largo"
+                    style="margin-top:var(--sp-3)"
                     @onclick="@(() => Esterno.ApriUrlAsync(Dati.Api.UrlLocandinaTorneo(t.Locandina!)))">
                 <Icona Nome="documento" Dimensione="20" /> Apri la locandina
             </button>
+        }
+
+        @if (t.EPassato && !t.HaRisultati && _live.Count == 0)
+        {
+            <p class="testo-xs testo-tenue" style="margin-top:var(--sp-4);text-align:center">
+                Per questo torneo la federazione non ha pubblicato la classifica.
+            </p>
         }
     }
 </div>
@@ -100,13 +133,26 @@
     [Parameter] public int Anno { get; set; }
     [Parameter] public int Progressivo { get; set; }
 
+    /// <summary>
+    /// Circolo da cui si e' arrivati, se si arriva dalla sua scheda: l'indietro
+    /// deve riportare li' e non al calendario generale.
+    /// </summary>
+    [Parameter, SupplyParameterFromQuery] public int? DaCircolo { get; set; }
+
+    private string Provenienza => DaCircolo is { } codice ? $"circoli/{codice}" : "tornei";
+
+    /// <summary>Il circolo si porta dietro anche nella schermata live, per l'indietro.</summary>
+    private string RitornoAlCircolo => DaCircolo is { } codice ? $"&daCircolo={codice}" : "";
+
     private Cached<Torneo?>? _torneo;
     private Circolo? _circolo;
+    private IReadOnlyList<LiveTorneo> _live = [];
 
     protected override async Task OnParametersSetAsync()
     {
         _torneo = null;
         _circolo = null;
+        _live = [];
 
         try
         {
@@ -120,10 +166,45 @@
                 var circoli = await Dati.CircoliAsync();
                 _circolo = circoli.Valore.FirstOrDefault(c => c.Codice == t.IdCircolo);
             }
+
+            if (_torneo?.Valore is { } torneo)
+                await CercaLive(torneo);
         }
         catch (Exception)
         {
             _torneo ??= new Cached<Torneo?>(null, DateTimeOffset.Now, false);
+        }
+    }
+
+    /// <summary>
+    /// Il calendario e le classifiche live sono due archivi separati, senza una
+    /// chiave in comune: li colleghiamo per circolo, data e rilevanza. E' l'unico
+    /// aggancio possibile, ed e' quello che evita di scambiare il torneo federale
+    /// con il torneo sociale che il circolo ha giocato lo stesso giorno.
+    /// </summary>
+    private async Task CercaLive(Torneo t)
+    {
+        var oggi = DateOnly.FromDateTime(DateTime.Today);
+        var fine = t.AData ?? t.DaData;
+
+        // L'elenco live copre circa una settimana: fuori da li' non c'e' nulla
+        // da cercare e ci risparmiamo la chiamata.
+        if (t.IdCircolo <= 0 || fine is null || fine < oggi.AddDays(-10) || t.DaData > oggi.AddDays(1))
+            return;
+
+        try
+        {
+            var live = await Dati.LiveTorneiAsync();
+
+            _live = live.Valore
+                .Where(l => l.IdCircolo == t.IdCircolo
+                            && l.Data is { } d && d >= t.DaData && d <= fine
+                            && (t.Rilevanza == Rilevanza.Sconosciuta || l.Rilevanza == t.Rilevanza))
+                .ToList();
+        }
+        catch (Exception)
+        {
+            _live = [];
         }
     }
 

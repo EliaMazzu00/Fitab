@@ -85,6 +85,82 @@ await Prova("Circoli", async () =>
     return $"{circoli.Count} circoli attivi, {conCitta} con citta' valorizzata";
 });
 
+var calendario = Array.Empty<Torneo>();
+
+await Prova("Calendario storico", async () =>
+{
+    // La scheda del circolo mostra anche i tornei gia' giocati, e senza DaData il
+    // backend parte da oggi: qui verifichiamo che chiedendo indietro nel tempo il
+    // passato arrivi davvero.
+    var da = new DateOnly(DateTime.Today.Year - 2, 1, 1);
+    var oggi = DateOnly.FromDateTime(DateTime.Today);
+
+    calendario = [.. await api.GetCalendarioAsync(da)];
+    var passati = calendario.Count(t => t.DaData is { } d && d < oggi);
+    if (passati == 0) throw new InvalidOperationException($"nessun torneo prima di oggi da {da:yyyy}");
+
+    var perCircolo = calendario.Where(t => t.IdCircolo > 0)
+                               .GroupBy(t => t.IdCircolo)
+                               .OrderByDescending(g => g.Count())
+                               .First();
+
+    return $"{calendario.Length} tornei dal {da:dd/MM/yyyy}, {passati} gia' giocati, " +
+           $"max {perCircolo.Count()} per un solo circolo";
+});
+
+await Prova("Classifiche finali", async () =>
+{
+    // I risultati di un torneo passato sono un PDF nella cartella delle locandine,
+    // e la federazione lo pubblica di rado. Qui contiamo quanti ce l'hanno e
+    // verifichiamo che il file esista davvero: e' l'unico modo per accorgersi se
+    // la cartella cambia posto.
+    var conRisultati = calendario.Where(t => t.HaRisultati).ToList();
+    if (conRisultati.Count == 0)
+        throw new InvalidOperationException("nessun torneo con classifica finale");
+
+    var torneoConPdf = conRisultati[0];
+
+    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+    using var risposta = await http.GetAsync(
+        api.UrlRisultatiTorneo(torneoConPdf.LinkRisultati!), HttpCompletionOption.ResponseHeadersRead);
+
+    if (!risposta.IsSuccessStatusCode)
+        throw new InvalidOperationException($"PDF non raggiungibile ({(int)risposta.StatusCode})");
+
+    var tipo = risposta.Content.Headers.ContentType?.MediaType ?? "";
+    if (tipo != "application/pdf")
+        throw new InvalidOperationException($"atteso un PDF, arrivato \"{tipo}\"");
+
+    var kb = (risposta.Content.Headers.ContentLength ?? 0) / 1024;
+    return $"{conRisultati.Count} tornei su {calendario.Length} con classifica finale, " +
+           $"campione {kb} KB";
+});
+
+await Prova("Testi dei circoli", async () =>
+{
+    // Meta' dei circoli ha, nei campi "dove" e "quando si gioca", blocchi
+    // <div style="display:none"> con spam SEO iniettato nel CMS anni fa. Il layer
+    // API li toglie con tutto il contenuto; se un domani il backend cambiasse
+    // involucro — o smettesse di nasconderlo — lo spam finirebbe in chiaro dentro
+    // l'app, e questo controllo se ne accorge prima dell'utente.
+    string[] spie =
+        ["cheat", "abortion", "chlamydia", "sex stor", "spy app", "std testing", "viagra", "porn"];
+
+    var circoli = await api.GetCircoliAsync();
+    var sporchi = circoli
+        .Where(c => spie.Any(s =>
+            c.DoveGioca.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+            c.QuandoGioca.Contains(s, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+
+    if (sporchi.Count > 0)
+        throw new InvalidOperationException(
+            $"{sporchi.Count} circoli con spam visibile, primo: {Taglia(sporchi[0].Descrizione, 30)}");
+
+    var conTesto = circoli.Count(c => c.DoveGioca.Length > 0 || c.QuandoGioca.Length > 0);
+    return $"{conTesto} circoli con dove/quando, nessuno con testo iniettato";
+});
+
 await Prova("Arbitri", async () =>
 {
     var arbitri = await api.GetArbitriAsync();

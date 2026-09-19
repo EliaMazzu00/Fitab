@@ -7,7 +7,11 @@
    Rispetto all'app attuale i filtri non sono piu' dietro un pulsante che apre
    un'altra pagina: stanno qui e agiscono all'istante. Regione e circolo non
    arrivano dal calendario — il backend restituisce solo IdCircolo — quindi li
-   ricaviamo incrociando con l'elenco circoli, che e' in cache per 24 ore. *@
+   ricaviamo incrociando con l'elenco circoli, che e' in cache per 24 ore.
+
+   Il periodo copre anche il passato. Lo storico pero' e' una richiesta a parte
+   (senza DaData il backend parte da oggi) e pesa dieci volte tanto, quindi lo
+   scarichiamo solo quando serve davvero: alla prima scelta che guarda indietro. *@
 
 <Intestazione Titolo="Tornei" />
 
@@ -87,7 +91,7 @@
         }
         else
         {
-            @foreach (var gruppo in _filtrati.GroupBy(t => Mese(t.DaData)))
+            @foreach (var gruppo in _filtrati.Take(_quantiMostrati).GroupBy(t => Mese(t.DaData)))
             {
                 <section class="sezione">
                     <div class="sezione__testata">
@@ -134,6 +138,16 @@
                                                 @torneo.Rilevanza.Descrizione()
                                             </span>
                                         }
+                                        @if (torneo.EPassato)
+                                        {
+                                            <span class="chip">Concluso</span>
+                                        }
+                                        @if (ConRisultati(torneo))
+                                        {
+                                            <span class="chip">
+                                                <Icona Nome="medaglia" Dimensione="13" /> Risultati
+                                            </span>
+                                        }
                                         @if (torneo.HaLocandina)
                                         {
                                             <span class="chip">
@@ -147,33 +161,58 @@
                     }
                 </section>
             }
+
+            @if (_filtrati.Count > _quantiMostrati)
+            {
+                <button class="pulsante pulsante--secondario pulsante--largo"
+                        style="margin-top:var(--sp-4)" @onclick="MostraAltri">
+                    Mostra altri (@(_filtrati.Count - _quantiMostrati) rimasti)
+                </button>
+            }
         }
     }
 </div>
 
 @code {
-    private enum Periodo { Tutti, SetteGiorni, TrentaGiorni, QuestoMese, TreMesi }
+    /// <summary>Quanti tornei disegnare per volta: il passato e' lungo.</summary>
+    private const int Infornata = 60;
+
+    /// <summary>Anni di storico da chiedere al calendario.</summary>
+    private const int AnniDiStorico = 2;
+
+    private enum Periodo
+    {
+        InProgramma, SetteGiorni, TrentaGiorni, QuestoMese, TreMesi,
+        UltimiTrenta, Passati, Tutto
+    }
 
     private Cached<IReadOnlyList<Torneo>>? _tornei;
     private IReadOnlyList<Torneo> _filtrati = [];
     private IReadOnlyList<Rilevanza> _rilevanzeDisponibili = [];
     private IReadOnlyList<string> _regioni = [];
+    private IReadOnlyList<LiveTorneo> _live = [];
 
     private Dictionary<int, Circolo> _circoli = [];
 
     private string _ricerca = "";
     private Rilevanza? _rilevanza;
     private string _regione = "";
-    private Periodo _periodo = Periodo.Tutti;
+    private Periodo _periodo = Periodo.InProgramma;
     private bool _soloConLocandina;
     private bool _inAggiornamento;
+    private bool _storicoCaricato;
+    private int _quantiMostrati = Infornata;
 
     private int FiltriAttivi =>
         (string.IsNullOrWhiteSpace(_ricerca) ? 0 : 1) +
         (_rilevanza is null ? 0 : 1) +
         (string.IsNullOrEmpty(_regione) ? 0 : 1) +
-        (_periodo == Periodo.Tutti ? 0 : 1) +
+        (_periodo == Periodo.InProgramma ? 0 : 1) +
         (_soloConLocandina ? 1 : 0);
+
+    /// <summary>Periodi che hanno bisogno dello storico.</summary>
+    private static bool GuardaIndietro(Periodo p) =>
+        p is Periodo.UltimiTrenta or Periodo.Passati or Periodo.Tutto;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,6 +247,14 @@
 
     private async Task Carica(bool forza = false)
     {
+        // Una volta scaricato lo storico non si torna indietro: contiene anche
+        // tutto il futuro, quindi serve per qualunque periodo.
+        if (_storicoCaricato)
+        {
+            await CaricaStorico(forza);
+            return;
+        }
+
         var oggi = DateOnly.FromDateTime(DateTime.Today);
         try
         {
@@ -221,6 +268,37 @@
         catch (Exception)
         {
             // Nessuna copia locale e nessuna rete: resta lo stato vuoto.
+        }
+        finally
+        {
+            _inAggiornamento = false;
+            Filtra();
+        }
+    }
+
+    private async Task CaricaStorico(bool forza = false)
+    {
+        var da = new DateOnly(DateTime.Today.Year - AnniDiStorico, 1, 1);
+
+        try
+        {
+            _tornei = await Dati.CalendarioStoricoAsync(da, c => InvokeAsync(() =>
+            {
+                _tornei = c;
+                Filtra();
+                StateHasChanged();
+            }), forza);
+
+            _storicoCaricato = true;
+
+            // Le classifiche live restano sul backend per una settimana circa:
+            // sono i risultati dei tornei appena giocati.
+            var live = await Dati.LiveTorneiAsync();
+            _live = live.Valore;
+        }
+        catch (Exception)
+        {
+            // Restiamo con quello che abbiamo: il calendario dei prossimi tornei.
         }
         finally
         {
@@ -253,21 +331,22 @@
         if (!string.IsNullOrEmpty(_regione))
             query = query.Where(t => Circolo(t)?.Regione == _regione);
 
-        if (_periodo != Periodo.Tutti)
-        {
-            var oggi = DateOnly.FromDateTime(DateTime.Today);
-            var limite = _periodo switch
-            {
-                Periodo.SetteGiorni => oggi.AddDays(7),
-                Periodo.TrentaGiorni => oggi.AddDays(30),
-                Periodo.QuestoMese => new DateOnly(oggi.Year, oggi.Month,
-                                          DateTime.DaysInMonth(oggi.Year, oggi.Month)),
-                Periodo.TreMesi => oggi.AddMonths(3),
-                _ => DateOnly.MaxValue
-            };
+        var oggi = DateOnly.FromDateTime(DateTime.Today);
 
-            query = query.Where(t => t.DaData is { } d && d <= limite);
-        }
+        query = _periodo switch
+        {
+            Periodo.InProgramma => query.Where(t => !t.EPassato),
+            Periodo.SetteGiorni => query.Where(t => Entro(t, oggi.AddDays(7))),
+            Periodo.TrentaGiorni => query.Where(t => Entro(t, oggi.AddDays(30))),
+            Periodo.QuestoMese => query.Where(t => Entro(t, new DateOnly(oggi.Year, oggi.Month,
+                                      DateTime.DaysInMonth(oggi.Year, oggi.Month)))),
+            Periodo.TreMesi => query.Where(t => Entro(t, oggi.AddMonths(3))),
+            Periodo.UltimiTrenta => query.Where(t => t.EPassato
+                                      && (t.AData ?? t.DaData) is { } fine
+                                      && fine >= oggi.AddDays(-30)),
+            Periodo.Passati => query.Where(t => t.EPassato),
+            _ => query
+        };
 
         if (!string.IsNullOrWhiteSpace(_ricerca))
         {
@@ -279,47 +358,94 @@
                 (Circolo(t)?.Citta.Contains(testo, StringComparison.CurrentCultureIgnoreCase) ?? false));
         }
 
-        _filtrati = query.OrderBy(t => t.DaData ?? DateOnly.MaxValue).ToList();
+        // I passati dal piu' recente, i futuri dal primo che arriva. Su "Tutto il
+        // calendario" le due meta' si mettono in fila: da oggi in avanti, poi
+        // da ieri all'indietro.
+        _filtrati = _periodo switch
+        {
+            Periodo.UltimiTrenta or Periodo.Passati =>
+                [.. query.OrderByDescending(t => t.DaData ?? DateOnly.MinValue)],
+            Periodo.Tutto =>
+            [
+                .. query.Where(t => !t.EPassato).OrderBy(t => t.DaData ?? DateOnly.MaxValue),
+                .. query.Where(t => t.EPassato).OrderByDescending(t => t.DaData ?? DateOnly.MinValue)
+            ],
+            _ => [.. query.OrderBy(t => t.DaData ?? DateOnly.MaxValue)]
+        };
     }
+
+    /// <summary>Torneo non ancora concluso e che comincia entro la data indicata.</summary>
+    private static bool Entro(Torneo t, DateOnly limite) =>
+        !t.EPassato && t.DaData is { } d && d <= limite;
+
+    /// <summary>
+    /// Vero se del torneo si riesce a vedere qualcosa: il PDF della classifica
+    /// finale oppure la classifica live, che il backend tiene una settimana circa.
+    /// I due archivi non hanno una chiave in comune: si agganciano per circolo,
+    /// data e rilevanza.
+    /// </summary>
+    private bool ConRisultati(Torneo t) =>
+        t.HaRisultati ||
+        _live.Any(l => l.IdCircolo == t.IdCircolo
+                       && l.Data is { } d && d >= t.DaData && d <= (t.AData ?? t.DaData)
+                       && (t.Rilevanza == Rilevanza.Sconosciuta || l.Rilevanza == t.Rilevanza));
 
     private void SuRicerca(ChangeEventArgs e)
     {
         _ricerca = e.Value?.ToString() ?? "";
-        Filtra();
+        Rifiltra();
     }
 
     private void FiltraPer(Rilevanza? r)
     {
         _rilevanza = r;
-        Filtra();
+        Rifiltra();
     }
 
     private void AlternaLocandina()
     {
         _soloConLocandina = !_soloConLocandina;
-        Filtra();
+        Rifiltra();
     }
 
     private void CambiaRegione(ChangeEventArgs e)
     {
         _regione = e.Value?.ToString() ?? "";
+        Rifiltra();
+    }
+
+    private async Task CambiaPeriodo(ChangeEventArgs e)
+    {
+        _periodo = Enum.TryParse<Periodo>(e.Value?.ToString(), out var p) ? p : Periodo.InProgramma;
+        _quantiMostrati = Infornata;
+
+        // Prima volta che si guarda indietro: lo storico non ce l'abbiamo ancora.
+        if (GuardaIndietro(_periodo) && !_storicoCaricato)
+        {
+            _inAggiornamento = true;
+            await CaricaStorico();
+            return;
+        }
+
         Filtra();
     }
 
-    private void CambiaPeriodo(ChangeEventArgs e)
+    private void Rifiltra()
     {
-        _periodo = Enum.TryParse<Periodo>(e.Value?.ToString(), out var p) ? p : Periodo.Tutti;
+        _quantiMostrati = Infornata;
         Filtra();
     }
+
+    private void MostraAltri() => _quantiMostrati += Infornata;
 
     private void AzzeraFiltri()
     {
         _ricerca = "";
         _rilevanza = null;
         _regione = "";
-        _periodo = Periodo.Tutti;
+        _periodo = Periodo.InProgramma;
         _soloConLocandina = false;
-        Filtra();
+        Rifiltra();
     }
 
     private async Task Aggiorna()
@@ -335,10 +461,13 @@
         Periodo.TrentaGiorni => "Prossimi 30 giorni",
         Periodo.QuestoMese => "Questo mese",
         Periodo.TreMesi => "Prossimi 3 mesi",
-        _ => "Tutto il calendario"
+        Periodo.UltimiTrenta => "Ultimi 30 giorni",
+        Periodo.Passati => "Tutti i tornei passati",
+        Periodo.Tutto => "Tutto il calendario",
+        _ => "In programma"
     };
 
-    private static string Mese(DateOnly? data)
+    private string Mese(DateOnly? data)
     {
         if (data is null) return "Data da definire";
 
@@ -346,7 +475,13 @@
                            "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre" };
 
         var d = data.Value;
-        return d.Year == DateTime.Today.Year ? mesi[d.Month] : $"{mesi[d.Month]} {d.Year}";
+
+        // Guardando indietro l'anno va sempre scritto: senza, "settembre" del
+        // calendario che verra' e "settembre" dell'anno scorso finirebbero
+        // nello stesso gruppo.
+        return d.Year == DateTime.Today.Year && !GuardaIndietro(_periodo)
+            ? mesi[d.Month]
+            : $"{mesi[d.Month]} {d.Year}";
     }
 
     private static string Giorno(DateOnly? data) => data is null

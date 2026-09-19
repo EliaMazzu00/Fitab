@@ -138,6 +138,48 @@ Il marchio non si ricolora: esiste in due versioni ufficiali e il componente
 `LogoFitab` mostra quella giusta per il tema. Sul tema scuro la versione a
 colori, che ha il wordmark nero, sarebbe illeggibile.
 
+### Tornei nella scheda del circolo
+
+La scheda di un circolo mostra i suoi tornei, passati e futuri, con tre filtri a
+pastiglia (*In programma*, *Passati*, *Tutti*, ciascuno col proprio conteggio) e,
+quando ce n'è più di una, un secondo filtro per rilevanza. I futuri sono ordinati
+dal primo che arriva, i passati dal più recente: in *Tutti* si legge come una
+linea del tempo che parte da oggi e va all'indietro. Se ne vedono otto, poi c'è
+*Mostra tutti*.
+
+Un torneo aperto da qui riporta **al circolo** e non al calendario generale
+(`tornei/{anno}/{prog}?daCircolo={codice}`). Se il circolo ha un torneo live in
+data odierna, compare in cima alla scheda e porta ai risultati in diretta.
+
+Il calendario storico è una sola chiamata, in cache per 6 ore e condivisa da
+tutti i circoli: aprire una scheda dopo l'altra non fa altro traffico.
+
+Anche la pagina **Tornei** guarda all'indietro: il menù del periodo ha *Ultimi
+30 giorni*, *Tutti i tornei passati* e *Tutto il calendario* accanto alle voci
+sul futuro. Lo storico però pesa dieci volte il calendario dei prossimi tornei,
+quindi si scarica **solo alla prima scelta che guarda indietro** — chi apre la
+pagina per vedere cosa si gioca sabato non paga niente. Le schede si disegnano
+sessanta per volta: i tornei passati sono centinaia.
+
+### I risultati di un torneo
+
+Sono due archivi diversi, e nessuno dei due copre tutto:
+
+| Dove | Cosa c'è | Per quanto |
+|---|---|---|
+| `LinkRisultati` | classifica finale in PDF, stessa cartella della locandina | per sempre, ma ce l'hanno **24 tornei su 763** |
+| classifiche live | risultati turno per turno | **circa una settimana**, poi il torneo sparisce dall'elenco |
+
+I due archivi non hanno una chiave in comune: il calendario ha `anno_progressivo`,
+il live un GUID. Si agganciano per **circolo, data e rilevanza** — la rilevanza
+serve a non scambiare il torneo federale col torneo sociale che lo stesso circolo
+ha giocato quel giorno.
+
+La scheda del torneo mostra quello che c'è (classifica finale, diretta, locandina)
+e, quando non c'è niente, lo dice invece di lasciar cercare. Nelle liste — pagina
+Tornei e scheda del circolo — i tornei con qualcosa da vedere portano la pastiglia
+*Risultati*.
+
 ### Precaricamento delle classifiche
 
 All'avvio parte `Precaricamento`, che scarica in background, **una richiesta alla
@@ -166,7 +208,30 @@ Sono tutte gestite dentro `Fitab.Api`, ma è utile conoscerle:
 - i booleani arrivano in tre formati diversi (`"S"`/`"N"`, `1`/`0`, `-1`/`0`);
 - la **classifica nazionale costa ~24 secondi a pagina**, ma filtrata per
   circolo risponde in meno di un secondo: da qui la cache a 24 ore e il
-  precaricamento in background delle pagine successive.
+  precaricamento in background delle pagine successive;
+- il **calendario senza `DaData` parte da oggi**: per i tornei già giocati va
+  chiesta esplicitamente una data indietro nel tempo. Due anni e mezzo sono
+  ~760 tornei per ~350 KB e arrivano in mezzo secondo, quindi il filtro per
+  circolo lo fa la UI (l'endpoint non lo prevede);
+- l'**elenco live tiene solo l'ultima settimana** (verificato: 51 tornei, dal
+  giorno prima a otto giorni prima) e non accetta parametri di data — oltre
+  quella finestra i risultati turno per turno non esistono più;
+- **metà dei circoli ha spam SEO iniettato nel CMS** — vedi sotto.
+
+### Lo spam dentro i campi dei circoli
+
+In `DoveGioca` e `QuandoGioca` di 50 circoli su 77 ci sono blocchi
+`<div style="display:none">` con link a siti di terzi e testi osceni, iniettati
+nel CMS anni fa (sono visibili nel JSON dei web service, non li abbiamo
+introdotti noi). Sul sito e nell'app attuale non si vedono perché il browser
+rispetta il `display:none`; la nostra pulizia del markup, invece, toglieva i tag
+e portava quel testo in chiaro dentro la scheda del circolo.
+
+`Testo.SenzaHtml` elimina ora il contenuto nascosto **insieme al suo
+contenitore**, prima di ogni altra pulizia — il contenuto invisibile non è
+contenuto — e la sonda ha un controllo dedicato (`Testi dei circoli`) che
+fallisce se dovesse riaffiorare. Vale la pena segnalarlo alla federazione: i
+dati sul loro server restano sporchi.
 
 ## Compilare per iOS
 

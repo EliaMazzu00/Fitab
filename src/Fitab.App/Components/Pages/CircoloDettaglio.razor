@@ -26,6 +26,41 @@
             </div>
         </div>
 
+        @* --- Tornei del circolo in corso proprio adesso --- *@
+        @if (_inCorso.Count > 0)
+        {
+            <section class="sezione">
+                <div class="sezione__testata">
+                    <span class="sezione__titolo">In diretta ora</span>
+                    <span class="testo-xs testo-tenue">@_inCorso.Count</span>
+                </div>
+
+                @foreach (var t in _inCorso)
+                {
+                    <button class="scheda scheda--cliccabile scheda--barrata"
+                            @onclick="@(() => Nav.NavigateTo($"live/{t.Codice}"))">
+                        <div class="scheda__corpo">
+                            <div style="display:flex;align-items:center;gap:var(--sp-2);
+                                        margin-bottom:var(--sp-2)">
+                                <span class="chip chip--live">
+                                    <span class="chip__pallino"></span> IN CORSO
+                                </span>
+                                @if (t.Rilevanza != Rilevanza.Sconosciuta)
+                                {
+                                    <span class="chip">@t.Rilevanza.Descrizione()</span>
+                                }
+                            </div>
+                            <div class="scheda__titolo troncato-2">@t.Descrizione</div>
+                            @if (!string.IsNullOrWhiteSpace(t.Arbitro))
+                            {
+                                <div class="scheda__meta troncato">Arbitro: @t.Arbitro</div>
+                            }
+                        </div>
+                    </button>
+                }
+            </section>
+        }
+
         @* --- Dove e quando si gioca: l'informazione che serve davvero --- *@
         @if (!string.IsNullOrWhiteSpace(c.DoveGioca) || !string.IsNullOrWhiteSpace(c.QuandoGioca))
         {
@@ -48,6 +83,147 @@
                 </div></div>
             </section>
         }
+
+        @* --- Tornei organizzati dal circolo, passati e futuri ---
+
+           Il calendario non si puo' interrogare per circolo: scarichiamo lo
+           storico una volta sola (e' in cache) e filtriamo qui. *@
+        <section class="sezione">
+            <div class="sezione__testata">
+                <span class="sezione__titolo">Tornei del circolo</span>
+                @if (_suoi.Count > 0)
+                {
+                    <span class="testo-xs testo-tenue">@_suoi.Count</span>
+                }
+            </div>
+
+            @if (_tornei is null)
+            {
+                <Scheletro Quante="3" />
+            }
+            else if (_suoi.Count == 0)
+            {
+                <div class="scheda"><div class="scheda__corpo">
+                    <div class="testo-sm testo-tenue">
+                        Nessun torneo di questo circolo nel calendario federale
+                        dal @_dallAnno a oggi.
+                    </div>
+                </div></div>
+            }
+            else
+            {
+                <div class="filtri" style="display:flex;gap:var(--sp-2);overflow-x:auto;
+                                           padding-bottom:var(--sp-2);margin-bottom:var(--sp-2)">
+                    @foreach (var q in Enum.GetValues<Quando>())
+                    {
+                        var quanti = Conta(q);
+                        <button class="chip @(_quando == q ? "chip--primario" : "")"
+                                style="min-height:36px;cursor:pointer@(quanti == 0 ? ";opacity:.45" : "")"
+                                disabled="@(quanti == 0)"
+                                @onclick="@(() => CambiaQuando(q))">
+                            @Etichetta(q) @quanti
+                        </button>
+                    }
+                </div>
+
+                @if (_rilevanzeDisponibili.Count > 1)
+                {
+                    <div class="filtri" style="display:flex;gap:var(--sp-2);overflow-x:auto;
+                                               padding-bottom:var(--sp-2);margin-bottom:var(--sp-2)">
+                        <button class="chip @(_rilevanza is null ? "chip--primario" : "")"
+                                style="min-height:36px;cursor:pointer"
+                                @onclick="@(() => FiltraPer(null))">Tutte le rilevanze</button>
+
+                        @foreach (var r in _rilevanzeDisponibili)
+                        {
+                            <button class="chip @(_rilevanza == r ? "chip--primario" : "")"
+                                    style="min-height:36px;cursor:pointer"
+                                    @onclick="@(() => FiltraPer(r))">@r.Descrizione()</button>
+                        }
+                    </div>
+                }
+
+                @if (_filtrati.Count == 0)
+                {
+                    <div class="scheda"><div class="scheda__corpo">
+                        <div class="testo-sm testo-tenue">
+                            Nessun torneo con questi filtri.
+                        </div>
+                    </div></div>
+                }
+                else
+                {
+                    @foreach (var gruppo in _filtrati.Take(_quantiMostrati).GroupBy(t => Mese(t.DaData)))
+                    {
+                        <div class="testo-xs testo-tenue"
+                             style="text-transform:capitalize;margin:var(--sp-3) 0 var(--sp-2)">
+                            @gruppo.Key
+                        </div>
+
+                        @foreach (var torneo in gruppo)
+                        {
+                            <button class="scheda scheda--cliccabile"
+                                    @onclick="@(() => Nav.NavigateTo($"tornei/{torneo.Id.Anno}/{torneo.Id.Progressivo}?daCircolo={Codice}"))">
+                                <div class="scheda__corpo" style="display:flex;gap:var(--sp-4)">
+                                    <div style="text-align:center;min-width:52px">
+                                        <div class="testo-forte"
+                                             style="font-size:var(--testo-2xl);line-height:1">
+                                            @(torneo.DaData?.Day.ToString() ?? "–")
+                                        </div>
+                                        <div class="testo-xs testo-secondario">
+                                            @Giorno(torneo.DaData)
+                                        </div>
+                                    </div>
+                                    <div style="flex:1;min-width:0">
+                                        <div class="scheda__titolo troncato-2">@torneo.Titolo</div>
+
+                                        @if (!string.IsNullOrWhiteSpace(torneo.Luogo))
+                                        {
+                                            <div class="scheda__meta troncato">@torneo.Luogo</div>
+                                        }
+
+                                        <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2);
+                                                    flex-wrap:wrap">
+                                            @if (torneo.Rilevanza != Rilevanza.Sconosciuta)
+                                            {
+                                                <span class="chip chip--primario">
+                                                    @torneo.Rilevanza.Descrizione()
+                                                </span>
+                                            }
+                                            @if (torneo.EPassato)
+                                            {
+                                                <span class="chip">Concluso</span>
+                                            }
+                                            @if (ConRisultati(torneo))
+                                            {
+                                                <span class="chip">
+                                                    <Icona Nome="medaglia" Dimensione="13" /> Risultati
+                                                </span>
+                                            }
+                                            @if (torneo.HaLocandina)
+                                            {
+                                                <span class="chip">
+                                                    <Icona Nome="documento" Dimensione="13" /> Locandina
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        }
+                    }
+
+                    @if (_filtrati.Count > _quantiMostrati)
+                    {
+                        <button class="pulsante pulsante--secondario pulsante--largo"
+                                style="margin-top:var(--sp-3)"
+                                @onclick="MostraTutti">
+                            Mostra tutti (@_filtrati.Count)
+                        </button>
+                    }
+                }
+            }
+        </section>
 
         <section class="sezione">
             <div class="sezione__testata">
@@ -143,13 +319,41 @@
 </div>
 
 @code {
+    /// <summary>Quanti tornei mostrare prima di chiedere "mostra tutti".</summary>
+    private const int PrimaInfornata = 8;
+
+    /// <summary>Anni di storico da chiedere al calendario.</summary>
+    private const int AnniDiStorico = 2;
+
+    private enum Quando { InProgramma, Passati, Tutti }
+
     [Parameter] public int Codice { get; set; }
 
     private Circolo? _circolo;
 
+    private Cached<IReadOnlyList<Torneo>>? _tornei;
+    private IReadOnlyList<Torneo> _suoi = [];
+    private IReadOnlyList<Torneo> _filtrati = [];
+    private IReadOnlyList<Rilevanza> _rilevanzeDisponibili = [];
+    private IReadOnlyList<LiveTorneo> _live = [];
+    private IReadOnlyList<LiveTorneo> _inCorso = [];
+
+    private Quando _quando = Quando.InProgramma;
+    private Rilevanza? _rilevanza;
+    private int _quantiMostrati = PrimaInfornata;
+    private int _dallAnno = DateTime.Today.Year - AnniDiStorico;
+
     protected override async Task OnParametersSetAsync()
     {
         _circolo = null;
+        _tornei = null;
+        _suoi = [];
+        _filtrati = [];
+        _live = [];
+        _inCorso = [];
+        _quando = Quando.InProgramma;
+        _rilevanza = null;
+        _quantiMostrati = PrimaInfornata;
 
         try
         {
@@ -168,7 +372,143 @@
         {
             _circolo = null;
         }
+
+        await CaricaTornei();
+        await CaricaLive();
     }
+
+    private async Task CaricaTornei()
+    {
+        var da = new DateOnly(_dallAnno, 1, 1);
+
+        try
+        {
+            _tornei = await Dati.CalendarioStoricoAsync(da, c => InvokeAsync(() =>
+            {
+                _tornei = c;
+                Filtra();
+                StateHasChanged();
+            }));
+        }
+        catch (Exception)
+        {
+            // Nessuna copia locale e nessuna rete: la sezione resta vuota,
+            // il resto della scheda funziona lo stesso.
+            _tornei = new Cached<IReadOnlyList<Torneo>>([], DateTimeOffset.Now, false);
+        }
+        finally
+        {
+            Filtra();
+        }
+    }
+
+    private async Task CaricaLive()
+    {
+        try
+        {
+            var live = await Dati.LiveTorneiAsync();
+            _live = live.Valore.Where(t => t.IdCircolo == Codice).ToList();
+            _inCorso = _live.Where(t => t.EDiOggi).ToList();
+        }
+        catch (Exception)
+        {
+            _live = [];
+            _inCorso = [];
+        }
+    }
+
+    /// <summary>
+    /// Vero se del torneo si riesce a vedere qualcosa: il PDF della classifica
+    /// finale, che la federazione pubblica di rado, oppure la classifica live,
+    /// che il backend tiene per una settimana circa. L'aggancio fra i due archivi
+    /// e' per data e rilevanza — non esiste una chiave condivisa.
+    /// </summary>
+    private bool ConRisultati(Torneo t) =>
+        t.HaRisultati ||
+        _live.Any(l => l.Data is { } d && d >= t.DaData && d <= (t.AData ?? t.DaData)
+                       && (t.Rilevanza == Rilevanza.Sconosciuta || l.Rilevanza == t.Rilevanza));
+
+    private void Filtra()
+    {
+        _suoi = (_tornei?.Valore ?? [])
+            .Where(t => t.IdCircolo == Codice)
+            .ToList();
+
+        _rilevanzeDisponibili = _suoi
+            .Select(t => t.Rilevanza)
+            .Where(r => r != Rilevanza.Sconosciuta)
+            .Distinct()
+            .OrderBy(r => r.Descrizione())
+            .ToList();
+
+        // Se il filtro della volta precedente non ha piu' nulla da mostrare —
+        // un circolo senza tornei futuri, per esempio — passiamo a quello che ce l'ha.
+        if (Conta(_quando) == 0 && _suoi.Count > 0)
+            _quando = Conta(Quando.InProgramma) > 0 ? Quando.InProgramma : Quando.Passati;
+
+        var query = _suoi.Where(t => _quando switch
+        {
+            Quando.InProgramma => !t.EPassato,
+            Quando.Passati => t.EPassato,
+            _ => true
+        });
+
+        if (_rilevanza is { } r)
+            query = query.Where(t => t.Rilevanza == r);
+
+        // I futuri dal primo che arriva, i passati dal piu' recente: in "Tutti"
+        // si legge come una linea del tempo che parte da oggi e va indietro.
+        _filtrati =
+        [
+            .. query.Where(t => !t.EPassato).OrderBy(t => t.DaData ?? DateOnly.MaxValue),
+            .. query.Where(t => t.EPassato).OrderByDescending(t => t.DaData ?? DateOnly.MinValue)
+        ];
+    }
+
+    private int Conta(Quando q) => q switch
+    {
+        Quando.InProgramma => _suoi.Count(t => !t.EPassato),
+        Quando.Passati => _suoi.Count(t => t.EPassato),
+        _ => _suoi.Count
+    };
+
+    private void CambiaQuando(Quando q)
+    {
+        _quando = q;
+        _quantiMostrati = PrimaInfornata;
+        Filtra();
+    }
+
+    private void FiltraPer(Rilevanza? r)
+    {
+        _rilevanza = r;
+        _quantiMostrati = PrimaInfornata;
+        Filtra();
+    }
+
+    private void MostraTutti() => _quantiMostrati = int.MaxValue;
+
+    private static string Etichetta(Quando q) => q switch
+    {
+        Quando.InProgramma => "In programma",
+        Quando.Passati => "Passati",
+        _ => "Tutti"
+    };
+
+    private static string Mese(DateOnly? data)
+    {
+        if (data is null) return "Data da definire";
+
+        var mesi = new[] { "", "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                           "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre" };
+
+        var d = data.Value;
+        return $"{mesi[d.Month]} {d.Year}";
+    }
+
+    private static string Giorno(DateOnly? data) => data is null
+        ? ""
+        : new[] { "dom", "lun", "mar", "mer", "gio", "ven", "sab" }[(int)data.Value.DayOfWeek];
 
     private static string Url(string sito) =>
         sito.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? sito : $"https://{sito}";

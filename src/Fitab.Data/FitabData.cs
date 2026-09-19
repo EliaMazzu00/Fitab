@@ -26,6 +26,10 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
     {
         public static readonly TimeSpan News = TimeSpan.FromMinutes(15);
         public static readonly TimeSpan Calendario = TimeSpan.FromMinutes(15);
+
+        /// <summary>Calendario esteso all'indietro: il passato non cambia piu'.</summary>
+        public static readonly TimeSpan CalendarioStorico = TimeSpan.FromHours(6);
+
         public static readonly TimeSpan Dettaglio = TimeSpan.FromHours(24);
         public static readonly TimeSpan Circoli = TimeSpan.FromHours(24);
         public static readonly TimeSpan Arbitri = TimeSpan.FromHours(24);
@@ -145,6 +149,22 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
         Action<Cached<IReadOnlyList<Torneo>>>? suAggiornamento = null,
         bool forza = false, CancellationToken ct = default) =>
         CaricaAsync($"calendario:{daData:yyyyMMdd}", Durate.Calendario,
+            c => api.GetCalendarioAsync(daData, null, c), suAggiornamento, forza, ct);
+
+    /// <summary>
+    /// Calendario a partire da una data nel passato, tornei gia' giocati compresi.
+    /// <para>
+    /// Senza <c>DaData</c> il backend parte da oggi: per vedere lo storico di un
+    /// circolo bisogna chiederglielo esplicitamente. Due anni e mezzo di calendario
+    /// sono ~760 tornei per ~350 KB e arrivano in mezzo secondo — il filtro per
+    /// circolo lo fa la UI, perche' l'endpoint non lo prevede.
+    /// </para>
+    /// </summary>
+    public Task<Cached<IReadOnlyList<Torneo>>> CalendarioStoricoAsync(
+        DateOnly daData,
+        Action<Cached<IReadOnlyList<Torneo>>>? suAggiornamento = null,
+        bool forza = false, CancellationToken ct = default) =>
+        CaricaAsync($"calendario:storico:{daData:yyyyMMdd}", Durate.CalendarioStorico,
             c => api.GetCalendarioAsync(daData, null, c), suAggiornamento, forza, ct);
 
     public Task<Cached<Torneo?>> TorneoAsync(

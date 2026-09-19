@@ -57,11 +57,24 @@ public sealed record Torneo
     /// <summary>Locandina PDF, da comporre con <c>UrlAllegatiCalendario</c>.</summary>
     public string? Locandina { get; init; }
 
+    /// <summary>
+    /// Classifica finale in PDF, nella stessa cartella della locandina. La
+    /// federazione la pubblica di rado: su ~760 tornei degli ultimi due anni e
+    /// mezzo ce l'hanno in ventiquattro.
+    /// </summary>
     public string? LinkRisultati { get; init; }
+
     public int Tipo { get; init; }
 
     public bool HaLocandina => !string.IsNullOrWhiteSpace(Locandina);
-    public bool EPassato => DaData is { } d && d < DateOnly.FromDateTime(DateTime.Today);
+    public bool HaRisultati => !string.IsNullOrWhiteSpace(LinkRisultati);
+
+    /// <summary>
+    /// Vero quando e' passato anche l'ultimo giorno: i tornei di piu' giornate
+    /// restano in programma mentre si stanno giocando.
+    /// </summary>
+    public bool EPassato =>
+        (AData ?? DaData) is { } fine && fine < DateOnly.FromDateTime(DateTime.Today);
 }
 
 public sealed record Circolo

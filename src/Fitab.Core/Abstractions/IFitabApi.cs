@@ -74,4 +74,7 @@ public interface IFitabApi
 
     /// <summary>URL assoluto della locandina PDF di un torneo.</summary>
     string UrlLocandinaTorneo(string nomeFile);
+
+    /// <summary>URL assoluto della classifica finale in PDF di un torneo.</summary>
+    string UrlRisultatiTorneo(string nomeFile);
 }
