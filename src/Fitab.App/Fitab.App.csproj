@@ -40,9 +40,12 @@
              Questo e' l'APK dimostrativo, deve poter convivere sullo stesso telefono. -->
         <ApplicationId>it.mazzuchelli.fitab.demo</ApplicationId>
 
-        <!-- Versions -->
-        <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <!-- Versions.
+             ApplicationDisplayVersion e' il numero che l'utente vede e va tenuto
+             allineato al tag della release; ApplicationVersion e' il codice di
+             build, deve solo crescere a ogni pacchetto distribuito. -->
+        <ApplicationDisplayVersion>2.2</ApplicationDisplayVersion>
+        <ApplicationVersion>2</ApplicationVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>
