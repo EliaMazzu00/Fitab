@@ -38,7 +38,7 @@
 
         <!-- App Identifier. NON e' com.fitab.evin: quella e' l'app pubblicata da Evin srl.
              Questo e' l'APK dimostrativo, deve poter convivere sullo stesso telefono. -->
-        <ApplicationId>it.caleidoscopio.fitab.demo</ApplicationId>
+        <ApplicationId>it.mazzuchelli.fitab.demo</ApplicationId>
 
         <!-- Versions -->
         <ApplicationDisplayVersion>2.0</ApplicationDisplayVersion>

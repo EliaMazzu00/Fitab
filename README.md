@@ -50,7 +50,7 @@ dotnet run --project src/Fitab.Probe
 
 ## Note operative
 
-- **Package id `it.caleidoscopio.fitab.demo`**, non `com.fitab.evin`: l'app
+- **Package id `it.mazzuchelli.fitab.demo`**, non `com.fitab.evin`: l'app
   pubblicata resta di Evin srl e le due devono poter convivere sullo stesso
   telefono.
 - **Target Android e Windows.** iOS e MacCatalyst sono stati tolti dai

@@ -4,7 +4,7 @@ L'app non è sugli store: è una dimostrazione, e va installata a mano. Android 
 semplice, iOS molto meno — Apple non permette di installare app fuori dall'App
 Store senza firmarle con un account sviluppatore.
 
-L'app usa l'identificativo `it.caleidoscopio.fitab.demo`, diverso da quello
+L'app usa l'identificativo `it.mazzuchelli.fitab.demo`, diverso da quello
 dell'app ufficiale (`com.fitab.evin`): **convivono sullo stesso telefono**, questa
 non sostituisce quella e non ne tocca i dati.
 
@@ -96,7 +96,7 @@ dotnet publish src/Fitab.App/Fitab.App.csproj -f net10.0-android -c Release
 ```
 
 L'APK esce in `src/Fitab.App/bin/Release/net10.0-android/publish/` come
-`it.caleidoscopio.fitab.demo-Signed.apk`.
+`it.mazzuchelli.fitab.demo-Signed.apk`.
 
 **iOS.** Serve un Mac, quindi la build gira su Codemagic: si avvia a mano dalla
 dashboard il workflow descritto in [codemagic.yaml](codemagic.yaml), che produce
