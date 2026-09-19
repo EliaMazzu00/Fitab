@@ -565,7 +565,7 @@ a { color: var(--primario); text-decoration: none; }
 .classifica__intestazione,
 .riga-live {
     display: grid;
-    grid-template-columns: 34px 1fr 38px 50px;
+    grid-template-columns: 42px 1fr 38px 50px;
     align-items: start;
     gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-2);
@@ -613,13 +613,18 @@ a { color: var(--primario); text-decoration: none; }
     .riga-live--io.riga-live--cambiata { animation: none; }
 }
 
+/* Posizione e variazione stanno incolonnate, non affiancate: di fianco il
+   contenuto sfondava la colonna gia' da "10 ▲3", e con tre cifre e una
+   variazione a doppia cifra finiva sopra i nomi della coppia. */
 .riga-live__posizione {
     display: flex;
-    align-items: baseline;
-    gap: 2px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
     font-size: var(--testo-lg);
     font-weight: var(--peso-forte);
     font-variant-numeric: tabular-nums;
+    line-height: 1.1;
 }
 
 .riga-live__coppia {
