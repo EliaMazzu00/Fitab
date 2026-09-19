@@ -3,8 +3,13 @@ bin/
 obj/
 build/
 
-# APK della demo Android: artefatti, non sorgenti (decine di MB)
+# Pacchetti dell'app: artefatti, non sorgenti (decine di MB l'uno).
+# Git conserva ogni versione per sempre e i binari non si comprimono per
+# differenze, quindi ogni build committata peserebbe sul clone di chiunque,
+# per sempre. Vanno distribuiti dalle Release, non dal repository.
 *.apk
+*.aab
+*.ipa
 
 # Cartella di lavoro per l'estrazione dell'APK originale
 extract/
