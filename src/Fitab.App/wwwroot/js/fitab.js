@@ -28,15 +28,6 @@ window.fitab = {
             document.removeEventListener('visibilitychange', gestori[id]);
             delete gestori[id];
         }
-    },
-
-    // Porta in vista la riga del giocatore ("vai alla mia posizione").
-    scorriA: function (idElemento) {
-        const elemento = document.getElementById(idElemento);
-        if (!elemento) return false;
-
-        elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return true;
     }
 };
 

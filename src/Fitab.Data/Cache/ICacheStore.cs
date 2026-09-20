@@ -17,8 +17,4 @@ public interface ICacheStore
     Task<Cached<T>?> LeggiAsync<T>(string chiave, CancellationToken ct = default);
 
     Task ScriviAsync<T>(string chiave, T valore, CancellationToken ct = default);
-
-    Task RimuoviAsync(string chiave, CancellationToken ct = default);
-
-    Task SvuotaAsync(CancellationToken ct = default);
 }

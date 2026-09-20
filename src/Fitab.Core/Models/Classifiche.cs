@@ -41,7 +41,6 @@ public sealed record VoceClassifica
     public required int Posizione { get; init; }
     public required string CognomeNome { get; init; }
     public string Tessera { get; init; } = "";
-    public string CodiceTesserato { get; init; } = "";
     public int Punti { get; init; }
     public int IdCircolo { get; init; }
     public string Circolo { get; init; } = "";
@@ -65,8 +64,6 @@ public sealed record MiaPosizione
 
     /// <summary>Posizioni guadagnate rispetto all'anno precedente (positivo = miglioramento).</summary>
     public int DeltaPosizione => PosizionePrecedente > 0 ? PosizionePrecedente - Posizione : 0;
-
-    public int DeltaPunti => Punti - PuntiPrecedenti;
 }
 
 /// <summary>Singolo risultato di torneo nello storico punteggi del tesserato.</summary>

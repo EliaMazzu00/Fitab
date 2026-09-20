@@ -189,17 +189,6 @@ a { color: var(--primario); text-decoration: none; }
 .barra-tab__voce.attiva { color: var(--primario); }
 .barra-tab__voce:active { background: var(--superficie-alt); }
 
-.barra-tab__punto {
-    position: absolute;
-    top: 6px;
-    margin-left: 22px;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: var(--rosso);
-    border: 2px solid var(--superficie);
-}
-
 /* -------------------------------------------------------------------- Schede */
 
 .scheda {
@@ -407,7 +396,6 @@ a { color: var(--primario); text-decoration: none; }
 
 .scheletro--riga { height: 1em; margin-bottom: var(--sp-2); }
 .scheletro--titolo { height: 1.4em; width: 70%; margin-bottom: var(--sp-3); }
-.scheletro--scheda { height: 92px; margin-bottom: var(--sp-3); }
 
 /* Barra di stato dati: "aggiornato 2 min fa" + eventuale errore */
 .stato-dati {
@@ -532,25 +520,9 @@ a { color: var(--primario); text-decoration: none; }
     color: var(--testo-secondario);
 }
 
-/* --- Riga fissa con la propria posizione --- */
-
-.io-fissa {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3);
-    padding: var(--sp-3) var(--sp-4);
-    background: var(--primario-tenue);
-    border-bottom: 2px solid var(--primario);
-}
-
-.io-fissa__etichetta {
-    font-size: var(--testo-xs);
-    font-weight: var(--peso-forte);
-    color: var(--primario-scuro);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-}
+/* La propria posizione non ha piu' un riquadro suo in cima alla schermata: la
+   riga in classifica e' evidenziata, porta il distintivo TU e dice le stesse
+   cose. Un riepilogo che ripete la riga sottostante e' solo schermo in meno. */
 
 /* --- Tabella classifica --- */
 
@@ -636,11 +608,6 @@ a { color: var(--primario); text-decoration: none; }
     line-height: 1.3;
 }
 
-.riga-live__tavolo {
-    font-size: var(--testo-xs);
-    color: var(--testo-tenue);
-}
-
 .riga-live__vp,
 .riga-live__mp {
     text-align: right;
@@ -683,27 +650,6 @@ a { color: var(--primario); text-decoration: none; }
 }
 
 .barra-live--errore { color: var(--ambra); }
-
-.vai-a-me {
-    position: fixed;
-    right: var(--sp-4);
-    bottom: calc(var(--barra-tab) + env(safe-area-inset-bottom) + var(--sp-4));
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-2);
-    min-height: 44px;
-    padding: 0 var(--sp-4);
-    border: 0;
-    border-radius: var(--raggio-pill);
-    background: var(--primario);
-    color: var(--su-primario);
-    font-family: inherit;
-    font-size: var(--testo-sm);
-    font-weight: var(--peso-forte);
-    box-shadow: var(--ombra-alta);
-    cursor: pointer;
-}
 
 /* ================================================================== Moduli */
 
@@ -867,6 +813,44 @@ a { color: var(--primario); text-decoration: none; }
     font-size: var(--testo-base);
 }
 
+/* Elenco di completamento sotto un campo di ricerca. Galleggia sul contenuto
+   invece di spingerlo in basso: si apre e si chiude a ogni tasto, e la pagina
+   sotto non deve ballare. */
+.suggerimenti {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 5;
+    max-height: 264px;
+    overflow-y: auto;
+    background: var(--superficie);
+    border: 1px solid var(--bordo-forte);
+    border-radius: var(--raggio-sm);
+    box-shadow: var(--ombra-alta);
+}
+
+.suggerimenti__voce {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    width: 100%;
+    min-height: var(--tocco-min);
+    padding: var(--sp-2) var(--sp-3);
+    border: 0;
+    border-bottom: 1px solid var(--bordo);
+    background: transparent;
+    color: var(--testo);
+    font-family: inherit;
+    font-size: var(--testo-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.suggerimenti__voce:last-child { border-bottom: 0; }
+.suggerimenti__voce:active { background: var(--superficie-alt); }
+.suggerimenti__voce > span:first-child { flex: 1; min-width: 0; }
+
 /* --- Riga di classifica generale --- */
 
 .riga-classifica {
@@ -1028,43 +1012,12 @@ a { color: var(--primario); text-decoration: none; }
     vertical-align: 2px;
 }
 
-/* Interruttore per isolare il proprio tavolo */
-.interruttore-tavolo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--sp-2);
-    width: 100%;
-    min-height: 44px;
-    margin-bottom: var(--sp-3);
-    border: 1px solid var(--bordo-forte);
-    border-radius: var(--raggio-sm);
-    background: var(--superficie);
-    color: var(--testo-secondario);
-    font-family: inherit;
-    font-size: var(--testo-sm);
-    font-weight: var(--peso-medio);
-    cursor: pointer;
-}
-
-.interruttore-tavolo.attivo {
-    background: var(--primario);
-    border-color: var(--primario);
-    color: var(--su-primario);
-}
-
 /* ================================================================= Marchi */
 
 /* I marchi FITAB-APS e AICS appartengono alla federazione e all'ente di
    affiliazione: qui sono usati per identificarli, come fa l'app ufficiale.
    Esistono in due versioni — a colori per i fondi chiari, in bianco per quelli
    colorati — e non vanno mai ricolorati o deformati. */
-
-.logo-barra {
-    height: 26px;
-    width: auto;
-    display: block;
-}
 
 .logo-accesso {
     display: block;
@@ -1275,20 +1228,6 @@ a { color: var(--primario); text-decoration: none; }
 
 /* Il chip "Generale" e' piu' largo degli altri: e' una vista, non un turno. */
 .turno--generale { font-weight: var(--peso-forte); }
-
-/* Dove si sta giocando adesso, dentro il riquadro della propria posizione. */
-.turno-corrente {
-    margin-top: var(--sp-3);
-    padding-top: var(--sp-3);
-    border-top: 1px solid var(--primario);
-}
-
-.turno-corrente__riga {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex-wrap: wrap;
-}
 
 /* VP guadagnati nell'ultimo turno concluso, sotto il totale. */
 .riga-live__guadagno {

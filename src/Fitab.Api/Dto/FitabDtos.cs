@@ -15,7 +15,6 @@ internal sealed class NewsDto
     public string Titolo { get; set; } = "";
     public string? Messaggio { get; set; }
     public string? Link { get; set; }
-    public bool Prima { get; set; }
     public bool Visibile { get; set; }
     public int IdCategoria { get; set; }
 }
@@ -69,11 +68,8 @@ internal sealed class ClassificaDto
 {
     public int Posizione { get; set; }
     public string CognomeNome { get; set; } = "";
-    public string? CodiceTesserati { get; set; }
     public string? TesseraTesserati { get; set; }
     public int IdCircolo { get; set; }
-    public string? IdRegioneCircolo { get; set; }
-    public string? IdProvinciaCircolo { get; set; }
     public string? DescrizioneRegione { get; set; }
     public string? DescrizioneCircolo { get; set; }
     public string? DescrizioneProvince { get; set; }
@@ -83,7 +79,6 @@ internal sealed class ClassificaDto
 
 internal sealed class PosizioneDto
 {
-    public string? Esito { get; set; }
     public string? Tessera { get; set; }
     public string? Nominativo { get; set; }
     public int Anno { get; set; }
@@ -97,7 +92,6 @@ internal sealed class PosizioneDto
 
 internal sealed class PunteggiDto
 {
-    public string? Esito { get; set; }
     public DateOnly? Data { get; set; }
     public string? Descrizione { get; set; }
     public string? Rilevanza { get; set; }
@@ -112,7 +106,6 @@ internal sealed class LiveTorneoDto
 {
     public string Codice { get; set; } = "";
     public int IdCircolo { get; set; }
-    public int IdArbitro { get; set; }
     public string? IdRegione { get; set; }
     public string? IdProvince { get; set; }
     public string Descrizione { get; set; } = "";
@@ -126,7 +119,6 @@ internal sealed class LiveTorneoDto
     public int TipoGioco { get; set; }
     public int TurniTot { get; set; }
     public int TurniMit { get; set; }
-    public int TurniDan { get; set; }
 
     [JsonPropertyName("SOLODANESI")]
     public bool SoloDanesi { get; set; }
@@ -149,7 +141,6 @@ internal sealed class LiveTurnoDto
 internal sealed class LivePuntoDto
 {
     public string Codice { get; set; } = "";
-    public string IdTorneo { get; set; } = "";
     public string DescrizioneCoppia { get; set; } = "";
     public string? Giocatore1 { get; set; }
     public string? Giocatore2 { get; set; }
@@ -172,7 +163,6 @@ internal sealed class EsitoDto
     public string? Tipo { get; set; }
     public int IdCircolo { get; set; }
     public string? Tessera { get; set; }
-    public string? CodFiscale { get; set; }
 
     [JsonPropertyName("DATAVALIDITA")]
     public string? DataValidita { get; set; }

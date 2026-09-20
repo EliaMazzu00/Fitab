@@ -101,6 +101,14 @@
     {
         <Scheletro Quante="3" />
     }
+    else if (_turniGiocati.Count == 0 && _errore is not null)
+    {
+        @* Un giro andato male non dice niente sul torneo: dire "nessun turno"
+           qui sarebbe inventarsi una risposta che il server non ha dato. *@
+        <StatoVuoto Titolo="Risultati non raggiungibili"
+                    Messaggio="@($"{_errore} Tocca Aggiorna per riprovare.")"
+                    NomeIcona="nessuna-rete" />
+    }
     else if (_turniGiocati.Count == 0)
     {
         <StatoVuoto Titolo="Nessun turno disponibile"
@@ -144,58 +152,6 @@
                 }
             </div>
 
-            @* La propria situazione, col tavolo del turno che si sta giocando *@
-            @if (_generale.Mia is { } mia)
-            {
-                <div class="io-fissa">
-                    <div class="io-fissa__etichetta">La tua posizione</div>
-                    <div style="display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-1)">
-                        <span style="font-size:var(--testo-2xl);font-weight:var(--peso-forte);line-height:1">
-                            @mia.Posizione°
-                        </span>
-                        @if (mia.DeltaPosizione != 0)
-                        {
-                            <span class="delta @(mia.InRisalita ? "delta--su" : "delta--giu")">
-                                <Icona Nome="@(mia.InRisalita ? "su" : "giu")" Dimensione="14" />
-                                @Math.Abs(mia.DeltaPosizione)
-                            </span>
-                        }
-                        <div style="flex:1;min-width:0">
-                            <div class="testo-sm">@mia.DescrizioneCoppia</div>
-                            <div class="testo-xs testo-secondario" style="margin-top:3px">
-                                VP @mia.VP · MP @mia.MP
-                                @if (mia.RisultatoUltimoTurnoNoto)
-                                {
-                                    <text> · ultimo turno @Segno(mia.VPUltimoTurno) VP</text>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    @if (_generale.TurnoInCorso && mia.TavoloInCorso > 0)
-                    {
-                        <div class="turno-corrente">
-                            <div class="turno-corrente__riga">
-                                <span class="tavolo tavolo--mio">
-                                    <Icona Nome="tavolo" Dimensione="12" /> Tavolo @mia.TavoloInCorso
-                                </span>
-                                @if (mia.ARiposo)
-                                {
-                                    <span class="testo-xs testo-secondario">sei di riposo in questo turno</span>
-                                }
-                                else
-                                {
-                                    <span class="testo-xs testo-secondario troncato">
-                                        contro @mia.Avversario (@mia.PosizioneAvversario°)
-                                    </span>
-                                }
-                            </div>
-
-                        </div>
-                    }
-                </div>
-            }
-
             <div class="classifica">
                 <div class="classifica__intestazione">
                     <span>Pos</span>
@@ -207,7 +163,6 @@
                 @foreach (var riga in _generale.RigheReali)
                 {
                     <div @key="(riga.ChiaveCoppia, riga.Posizione, riga.VP, riga.MP)"
-                         id="@IdRiga(riga)"
                          class="riga-live @(riga.SonoIo ? "riga-live--io" : "")">
 
                         <div class="riga-live__posizione">
@@ -278,54 +233,6 @@
     }
     else
     {
-        @* La propria posizione resta sempre visibile in cima *@
-        @if (_miaRiga is not null)
-        {
-            <div class="io-fissa">
-                <div class="io-fissa__etichetta">La tua posizione</div>
-                <div style="display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-1)">
-                    <span style="font-size:var(--testo-2xl);font-weight:var(--peso-forte);
-                                 line-height:1">
-                        @_miaRiga.Dati.Posizione°
-                    </span>
-                    @if (_miaRiga.DeltaPosizione != 0)
-                    {
-                        <span class="delta @(_miaRiga.InRisalita ? "delta--su" : "delta--giu")">
-                            <Icona Nome="@(_miaRiga.InRisalita ? "su" : "giu")" Dimensione="14" />
-                            @Math.Abs(_miaRiga.DeltaPosizione)
-                        </span>
-                    }
-                    <div style="flex:1;min-width:0">
-                        <div class="testo-sm">@Primo(_miaRiga.Dati)</div>
-                        @if (Secondo(_miaRiga.Dati) is { Length: > 0 } compagno)
-                        {
-                            <div class="testo-sm">@compagno</div>
-                        }
-                        <div style="display:flex;align-items:center;gap:var(--sp-2);
-                                    margin-top:3px;flex-wrap:wrap">
-                            <span class="tavolo tavolo--mio">
-                                <Icona Nome="tavolo" Dimensione="12" /> Tavolo @_miaRiga.Dati.NumTavolo
-                            </span>
-                            <span class="testo-xs testo-secondario">
-                                VP @_miaRiga.Dati.VP · MP @_miaRiga.Dati.MP
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
-
-        @if (_mioTavolo is not null)
-        {
-            <button class="interruttore-tavolo @(_soloMioTavolo ? "attivo" : "")"
-                    @onclick="@(() => _soloMioTavolo = !_soloMioTavolo)">
-                <Icona Nome="tavolo" Dimensione="18" />
-                @(_soloMioTavolo
-                    ? $"Mostro solo il tavolo {_mioTavolo} — tocca per vedere tutti"
-                    : $"Vedi solo il mio tavolo ({_mioTavolo})")
-            </button>
-        }
-
         <div class="classifica">
             <div class="classifica__intestazione">
                 <span>Pos</span>
@@ -334,12 +241,11 @@
                 <span style="text-align:right">MP</span>
             </div>
 
-            @foreach (var riga in _righeVisibili)
+            @foreach (var riga in _righe)
             {
                 @* La chiave include i valori: quando cambiano, Blazor ricrea
                    l'elemento e l'animazione di evidenziazione riparte. *@
                 <div @key="(riga.Dati.Codice, riga.Dati.Posizione, riga.Dati.VP, riga.Dati.MP)"
-                     id="@IdRiga(riga)"
                      class="riga-live @(riga.Dati.SonoIo ? "riga-live--io" : "") @(!riga.Dati.SonoIo && _mioTavolo == riga.Dati.NumTavolo ? "riga-live--mio-tavolo" : "") @(riga.Cambiata ? "riga-live--cambiata" : "")">
 
                     <div class="riga-live__posizione">
@@ -391,13 +297,6 @@
     }
 </div>
 
-@if (MostraPulsanteVaiAMe)
-{
-    <button class="vai-a-me" @onclick="VaiAMe">
-        <Icona Nome="persona" Dimensione="18" /> La mia posizione
-    </button>
-}
-
 @code {
     [Parameter] public string Codice { get; set; } = "";
 
@@ -437,6 +336,13 @@
     private IReadOnlyList<LiveTurno> _turni = [];
 
     /// <summary>
+    /// Fotografia letta dal disco all'ingresso, in attesa di essere consegnata al
+    /// polling: contiene le righe degli ultimi due turni, che a quel punto non ha
+    /// piu' motivo di riscaricare. Si consuma una volta sola.
+    /// </summary>
+    private IstantaneaLive? _istantanea;
+
+    /// <summary>
     /// I soli turni con risultati, in ordine di gioco. Esclude lo pseudo-turno
     /// "0-P" che il backend mette in coda: contiene gli abbinamenti, non i punti,
     /// e come chip mostrerebbe una tabella tutta a zero.
@@ -460,16 +366,11 @@
     private bool _generaleInCaricamento = true;
     private bool _turnoInCaricamento;
 
-    private bool _soloMioTavolo;
-
-    /// <summary>Tavolo del tesserato nel turno mostrato, se sta giocando qui.</summary>
+    /// <summary>
+    /// Tavolo del tesserato nel turno mostrato, se sta giocando qui: serve a
+    /// tingere le righe degli avversari diretti.
+    /// </summary>
     private int? _mioTavolo => _miaRiga?.Dati.NumTavolo;
-
-    /// <summary>Righe da disegnare: tutte, o solo quelle del proprio tavolo.</summary>
-    private IReadOnlyList<RigaLive> _righeVisibili =>
-        _soloMioTavolo && _mioTavolo is { } tavolo
-            ? _righe.Where(r => r.Dati.NumTavolo == tavolo).ToList()
-            : _righe;
 
     private DateTimeOffset? _ultimoAggiornamento;
     private string? _errore;
@@ -501,8 +402,12 @@
         // fotografia su disco, la schermata si disegna adesso.
         await PrimoDisegnoDallaCache();
 
+        // Da qui in poi _caricamentoIniziale lo spegne il primo giro di polling
+        // che arriva — riuscito o fallito che sia. Spegnerlo qui voleva dire
+        // scrivere "Nessun turno disponibile" sopra un torneo che i turni ce li
+        // aveva: erano solo ancora per strada, e l'unico modo di accorgersene
+        // era premere Aggiorna.
         await CaricaTorneoETurni();
-        _caricamentoIniziale = false;
     }
 
     /// <summary>
@@ -528,6 +433,12 @@
 
             _generale = ClassificaGenerale.Calcola(i.Torneo, i.Ultimo, i.Righe, i.Precedenti);
             _ultimoAggiornamento = salvata.AggiornatoIl;
+
+            // C'e' qualcosa da guardare: lo scheletro non serve piu'.
+            _caricamentoIniziale = false;
+            _generaleInCaricamento = false;
+
+            _istantanea = i;
         }
         catch (Exception)
         {
@@ -544,13 +455,19 @@
             // ogni giro. Prima veniva scaricato due volte di fila all'ingresso.
             if (_torneo is null)
             {
-                var tornei = await Dati.LiveTorneiAsync(Utente.Tessera);
+                // Senza tessera, di proposito: l'elenco non contiene niente di
+                // personale e cosi' la chiave di cache e' la stessa della
+                // schermata da cui si arriva. Chiedendolo per tessera si
+                // ripartiva sempre da una cache vuota, cioe' da una chiamata di
+                // rete in piu' prima ancora di cominciare.
+                var tornei = await Dati.LiveTorneiAsync();
                 _torneo = tornei.Valore.FirstOrDefault(t => t.Codice == Codice);
             }
 
             if (_torneo is null)
             {
                 _errore = "Torneo non trovato.";
+                _caricamentoIniziale = false;
                 return;
             }
 
@@ -559,6 +476,7 @@
         catch (Exception)
         {
             _errore = "Impossibile caricare il torneo.";
+            _caricamentoIniziale = false;
         }
     }
 
@@ -570,15 +488,34 @@
         if (_pollingGenerale is null || _torneo is null) return;
 
         _polling?.Ferma();
+        _pollingGenerale.Intervallo = Cadenza;
         _pollingGenerale.Configura(_torneo, _turnoScelto?.Girone ?? "", Utente.Tessera);
+
+        // Con piu' gironi la fotografia parla di uno solo: se non e' quello su cui
+        // il polling e' appena stato configurato, Riparti la scarta da se'.
+        if (_istantanea is { } i)
+        {
+            _pollingGenerale.Riparti(i);
+            _istantanea = null;
+        }
+
         _pollingGenerale.Avvia();
     }
+
+    /// <summary>
+    /// Ogni quanto interrogare il server. Un torneo che non e' di oggi ha i turni
+    /// chiusi: si controlla lo stesso, ma non ogni venticinque secondi.
+    /// </summary>
+    private TimeSpan Cadenza => _torneo?.EDiOggi == true
+        ? PollingPrudente.CadenzaSerata
+        : PollingPrudente.CadenzaRiposo;
 
     private void AvviaPolling()
     {
         if (_polling is null || _turnoScelto is null) return;
 
         _pollingGenerale?.Ferma();
+        _polling.Intervallo = Cadenza;
         _polling.Configura(Codice, _turnoScelto.Codice, _turnoScelto.Girone, Utente.Tessera);
         _polling.Avvia();
     }
@@ -623,7 +560,6 @@
         _turnoInCaricamento = true;
         _righe = [];
         _miaRiga = null;
-        _soloMioTavolo = false;
         _ultimoAggiornamento = null;
         _errore = null;
 
@@ -635,6 +571,7 @@
         _righe = esito.Righe;
         _miaRiga = esito.Righe.FirstOrDefault(r => r.Dati.SonoIo);
         _turnoInCaricamento = false;
+        _caricamentoIniziale = false;
         _ultimoAggiornamento = esito.Momento;
         _errore = esito.Errore;
         _inAggiornamento = false;
@@ -646,6 +583,7 @@
     {
         if (esito.Classifica is not null) _generale = esito.Classifica;
         _generaleInCaricamento = false;
+        _caricamentoIniziale = false;
 
         // I chip si riallineano da soli: quando l'arbitro chiude un turno, il giro
         // successivo porta gia' l'elenco aggiornato.
@@ -681,20 +619,6 @@
         }
     }
 
-    private bool MostraPulsanteVaiAMe => _vistaGenerale
-        ? _generale?.Mia is not null && _generale.Righe.Count > 8
-        : _miaRiga is not null && _righe.Count > 8;
-
-    private async Task VaiAMe()
-    {
-        var id = _vistaGenerale
-            ? _generale?.Mia is { } mia ? IdRiga(mia) : null
-            : _miaRiga is not null ? IdRiga(_miaRiga) : null;
-
-        if (id is null) return;
-        await JS.InvokeVoidAsync("fitab.scorriA", id);
-    }
-
     // Il backend fornisce i due giocatori sia uniti (DescrizioneCoppia) sia
     // separati: usiamo i separati quando ci sono, con fallback sulla stringa unica.
     private static string Primo(LiveRiga r) =>
@@ -702,14 +626,6 @@
 
     private static string Secondo(LiveRiga r) =>
         !string.IsNullOrWhiteSpace(r.Giocatore1) ? r.Giocatore2 : "";
-
-    private static string IdRiga(RigaLive riga) =>
-        "riga-" + riga.Dati.Codice.Replace("-", "");
-
-    // Nella generale la chiave e' quella stabile della coppia: il Codice di riga
-    // cambia da un turno all'altro e farebbe puntare a un elemento che non c'e' piu'.
-    private static string IdRiga(RigaGenerale riga) =>
-        "gen-" + new string(riga.ChiaveCoppia.Where(char.IsLetterOrDigit).ToArray());
 
     /// <summary>VP guadagnati in un turno, col segno: "+13".</summary>
     private static string Segno(int valore) => valore > 0 ? $"+{valore}" : valore.ToString();

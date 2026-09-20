@@ -82,24 +82,6 @@ public sealed class FileCacheStore : ICacheStore
         }
     }
 
-    public Task RimuoviAsync(string chiave, CancellationToken ct = default)
-    {
-        TentaCancellazione(Percorso(chiave));
-        return Task.CompletedTask;
-    }
-
-    public Task SvuotaAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            foreach (var file in Directory.EnumerateFiles(_cartella, "*.json"))
-                TentaCancellazione(file);
-        }
-        catch (DirectoryNotFoundException) { }
-
-        return Task.CompletedTask;
-    }
-
     private SemaphoreSlim Lucchetto(string chiave) =>
         _lucchetti.GetOrAdd(chiave, _ => new SemaphoreSlim(1, 1));
 

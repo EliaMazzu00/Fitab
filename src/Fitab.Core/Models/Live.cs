@@ -61,7 +61,6 @@ public sealed record LiveTorneo
     public int NumeroTavoli { get; init; }
     public int TurniTotali { get; init; }
     public int TurniMitchell { get; init; }
-    public int TurniDanesi { get; init; }
     public bool SoloDanesi { get; init; }
     public int TipoGioco { get; init; }
 

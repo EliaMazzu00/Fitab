@@ -289,25 +289,6 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
         CaricaAsync($"live:tornei:{tessera ?? "-"}", Durate.Live,
             c => api.GetLiveTorneiAsync(tessera, c), suAggiornamento, forza, ct);
 
-    public Task<Cached<IReadOnlyList<LiveTurno>>> LiveTurniAsync(
-        string idTorneo, string? tessera = null,
-        Action<Cached<IReadOnlyList<LiveTurno>>>? suAggiornamento = null,
-        bool forza = false, CancellationToken ct = default) =>
-        CaricaAsync($"live:turni:{idTorneo}:{tessera ?? "-"}", Durate.Live,
-            c => api.GetLiveTurniAsync(idTorneo, tessera, c), suAggiornamento, forza, ct);
-
-    /// <summary>
-    /// Classifica di un turno. Da ricordare: VP e MP che arrivano qui sono cumulativi
-    /// sull'intero torneo, non del singolo turno — sull'ultimo turno pubblicato questa
-    /// e' gia' la classifica generale. Vedi <see cref="ClassificaGenerale"/>.
-    /// </summary>
-    public Task<Cached<IReadOnlyList<LiveRiga>>> LiveClassificaAsync(
-        string idTorneo, string turno, string girone, string? tessera = null,
-        Action<Cached<IReadOnlyList<LiveRiga>>>? suAggiornamento = null,
-        bool forza = false, CancellationToken ct = default) =>
-        CaricaAsync($"live:classifica:{idTorneo}:{turno}:{girone}:{tessera ?? "-"}", Durate.Live,
-            c => api.GetLiveClassificaAsync(idTorneo, turno, girone, tessera, c), suAggiornamento, forza, ct);
-
     /// <summary>
     /// Fotografia dell'ultimo stato conosciuto di un torneo live, letta <b>solo dal
     /// disco</b>: non tocca la rete e torna null se non c'e' nulla. Serve al primo
@@ -327,6 +308,4 @@ public sealed class FitabData(IFitabApi api, ICacheStore cache)
 
     /// <summary>Accesso diretto all'API, senza cache: usato dal polling della schermata live.</summary>
     public IFitabApi Api => api;
-
-    public Task SvuotaCacheAsync(CancellationToken ct = default) => cache.SvuotaAsync(ct);
 }

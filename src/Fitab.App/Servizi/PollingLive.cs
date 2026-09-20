@@ -17,7 +17,6 @@ namespace Fitab.App.Servizi;
 public sealed record RigaLive(LiveRiga Dati, int DeltaPosizione, bool Nuova, bool Cambiata = false)
 {
     public bool InRisalita => DeltaPosizione > 0;
-    public bool InDiscesa => DeltaPosizione < 0;
 }
 
 public sealed record EsitoLive(

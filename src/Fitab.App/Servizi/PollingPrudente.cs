@@ -14,8 +14,19 @@ public abstract class PollingPrudente : IAsyncDisposable
     private CancellationTokenSource? _cts;
     private int _erroriConsecutivi;
 
-    /// <summary>Cadenza base. Su una serata di burraco i tavoli non cambiano piu' spesso.</summary>
-    public TimeSpan Intervallo { get; set; } = TimeSpan.FromSeconds(25);
+    /// <summary>Cadenza di una serata in corso. I tavoli non cambiano piu' spesso.</summary>
+    public static readonly TimeSpan CadenzaSerata = TimeSpan.FromSeconds(25);
+
+    /// <summary>
+    /// Cadenza per un torneo che non e' di oggi: i suoi turni sono chiusi e non si
+    /// muovono piu'. Si continua a controllare, ma di rado — un arbitro puo' sempre
+    /// spedire in ritardo un turno rimasto indietro — e senza spendere una chiamata
+    /// ogni venticinque secondi su un server che non e' nostro.
+    /// </summary>
+    public static readonly TimeSpan CadenzaRiposo = TimeSpan.FromMinutes(5);
+
+    /// <summary>Cadenza base.</summary>
+    public TimeSpan Intervallo { get; set; } = CadenzaSerata;
 
     public bool Sospeso { get; private set; }
 

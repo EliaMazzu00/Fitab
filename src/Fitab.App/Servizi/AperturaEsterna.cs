@@ -36,18 +36,9 @@ public sealed class AperturaEsterna
         return ApriUrlAsync(url);
     }
 
-    /// <summary>Apre l'indirizzo nell'app di mappe del dispositivo.</summary>
-    public Task ApriMappaAsync(string indirizzo)
-    {
-        if (string.IsNullOrWhiteSpace(indirizzo)) return Task.CompletedTask;
-
-        return Prova(() => Map.Default.OpenAsync(
-            new Placemark { Location = null, Thoroughfare = indirizzo }));
-    }
-
     /// <summary>
-    /// Ricerca su mappa per testo libero: piu' affidabile dei placemark parziali,
-    /// perche' gli indirizzi dei circoli arrivano dal CMS in forma libera.
+    /// Ricerca su mappa per testo libero: gli indirizzi dei circoli arrivano dal
+    /// CMS in forma libera, e un placemark costruito a pezzi non li ritrova.
     /// <para>
     /// Lo schema dell'URL cambia per piattaforma: <c>geo:</c> esiste solo su
     /// Android, su iOS va usato maps.apple.com e su Windows lo schema bingmaps.

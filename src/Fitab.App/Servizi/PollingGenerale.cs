@@ -52,7 +52,7 @@ public sealed class PollingGenerale(FitabData dati) : PollingPrudente
     private string _girone = "";
     private string? _tessera;
 
-    private string _chiaveUltimoTurno = "";
+    private LiveTurno? _ultimoTurno;
     private ClassificaGenerale? _ultima;
 
     // Righe dei turni gia' scaricati. Un turno chiuso non cambia piu', quindi quello
@@ -71,27 +71,80 @@ public sealed class PollingGenerale(FitabData dati) : PollingPrudente
     /// </param>
     public void Configura(LiveTorneo torneo, string girone = "", string? tessera = null)
     {
+        // Riconfigurare con gli stessi parametri capita a ogni rientro nella vista
+        // generale dai chip dei turni. Buttare via le righe gia' scaricate
+        // costringerebbe il giro successivo a rifare tutto da capo: due chiamate
+        // in piu' ogni volta che si tocca "Generale".
+        if (_torneo?.Codice == torneo.Codice && _girone == girone && _tessera == tessera)
+        {
+            AzzeraErrori();
+            return;
+        }
+
         _torneo = torneo;
         _girone = girone;
         _tessera = tessera;
-        _chiaveUltimoTurno = "";
+        _ultimoTurno = null;
         _righePerTurno.Clear();
         _ultima = null;
         AzzeraErrori();
+    }
+
+    /// <summary>
+    /// Riparte dalla fotografia salvata su disco invece che da zero.
+    /// <para>
+    /// Le righe che contiene sono quelle degli ultimi due turni al momento in cui
+    /// e' stata presa, e un turno chiuso non cambia piu'. Senza questo, il primo
+    /// giro dopo ogni ingresso riscaricava una classifica che avevamo gia' letto
+    /// dal disco un istante prima.
+    /// </para>
+    /// </summary>
+    public void Riparti(IstantaneaLive istantanea)
+    {
+        if (_torneo is null || _torneo.Codice != istantanea.Torneo.Codice) return;
+
+        // Con piu' gironi la fotografia parla di uno solo: se non e' quello che
+        // stiamo seguendo, le sue righe sono di un'altra competizione.
+        if (!string.IsNullOrEmpty(_girone) && istantanea.Ultimo.Girone != _girone) return;
+
+        _righePerTurno[istantanea.Ultimo.Chiave] = istantanea.Righe;
+
+        // La fotografia non dice a quale turno appartengano le righe precedenti:
+        // si ricava dalla sequenza dei turni salvata insieme a lei.
+        if (istantanea.Precedenti is { Count: > 0 } precedenti)
+        {
+            var sequenza = Sequenza(istantanea.Turni);
+            var posizione = sequenza.FindIndex(t => t.Chiave == istantanea.Ultimo.Chiave);
+            if (posizione > 0) _righePerTurno[sequenza[posizione - 1].Chiave] = precedenti;
+        }
+
+        _ultimoTurno = istantanea.Ultimo;
     }
 
     protected override async Task Scarica(CancellationToken ct)
     {
         if (_torneo is null) return;
 
+        // Il turno che risulta ultimo dal giro precedente. La sua classifica parte
+        // insieme all'elenco turni, senza aspettare di sapere se e' ancora lui:
+        // nove giri su dieci lo e', e cosi' un aggiornamento costa un viaggio
+        // invece di due. Quando invece l'arbitro ne ha appena chiuso uno nuovo,
+        // quella che arriva e' la classifica del turno precedente, che serve
+        // comunque ai risultati di tappa. In nessuno dei due casi e' sprecata.
+        var ipotesi = _ultimoTurno;
+
         try
         {
-            var turni = await dati.Api.GetLiveTurniAsync(_torneo.Codice, _tessera, ct);
+            var attesaTurni = dati.Api.GetLiveTurniAsync(_torneo.Codice, _tessera, ct);
 
-            var sequenza = turni
-                .Where(t => string.IsNullOrEmpty(_girone) || t.Girone == _girone)
-                .InOrdineDiGioco()
-                .ToList();
+            var attesaIpotesi = ipotesi is null
+                ? null
+                : Osservata(dati.Api.GetLiveClassificaAsync(
+                    _torneo.Codice, ipotesi.Codice, ipotesi.Girone, _tessera, ct));
+
+            var turni = await attesaTurni;
+
+            var sequenza = Sequenza(turni);
 
             if (sequenza.Count == 0)
             {
@@ -103,18 +156,48 @@ public sealed class PollingGenerale(FitabData dati) : PollingPrudente
 
             var ultimo = sequenza[^1];
             var penultimo = sequenza.Count > 1 ? sequenza[^2] : null;
-            var turnoNuovo = _chiaveUltimoTurno.Length > 0 && _chiaveUltimoTurno != ultimo.Chiave;
+            var turnoNuovo = ipotesi is not null && ipotesi.Chiave != ultimo.Chiave;
 
-            IReadOnlyList<LiveRiga>? righePrecedenti = null;
-            if (penultimo is not null && !_righePerTurno.TryGetValue(penultimo.Chiave, out righePrecedenti))
+            IReadOnlyList<LiveRiga>? righeIpotesi = null;
+            if (attesaIpotesi is not null)
             {
-                righePrecedenti = await dati.Api.GetLiveClassificaAsync(
-                    _torneo.Codice, penultimo.Codice, penultimo.Girone, _tessera, ct);
-                _righePerTurno[penultimo.Chiave] = righePrecedenti;
+                try
+                {
+                    righeIpotesi = await attesaIpotesi;
+                    _righePerTurno[ipotesi!.Chiave] = righeIpotesi;
+                }
+                catch (Exception) when (!ct.IsCancellationRequested)
+                {
+                    // Era una richiesta lanciata a scatola chiusa: se e' andata
+                    // male non e' un giro fallito, si rifa' qui sotto dove serve.
+                }
             }
 
-            var righe = await dati.Api.GetLiveClassificaAsync(
-                _torneo.Codice, ultimo.Codice, ultimo.Girone, _tessera, ct);
+            // L'ultimo turno si richiede sempre, anche se ce l'abbiamo gia': un
+            // arbitro puo' correggere un punteggio appena inserito. L'unica copia
+            // che vale e' quella appena arrivata in questo giro — non quella della
+            // fotografia su disco, che e' vecchia di quanto lo e' la fotografia.
+            var attesaUltimo = ipotesi?.Chiave == ultimo.Chiave && righeIpotesi is not null
+                ? Task.FromResult(righeIpotesi)
+                : Osservata(dati.Api.GetLiveClassificaAsync(
+                    _torneo.Codice, ultimo.Codice, ultimo.Girone, _tessera, ct));
+
+            // Un turno chiuso non cambia piu': il precedente si scarica una volta
+            // sola. Quando serve parte insieme all'ultimo invece che dopo: a freddo
+            // e' l'unico punto in cui servono davvero due classifiche, e sono due
+            // richieste leggere.
+            var attesaPenultimo = penultimo is null || _righePerTurno.ContainsKey(penultimo.Chiave)
+                ? null
+                : Osservata(dati.Api.GetLiveClassificaAsync(
+                    _torneo.Codice, penultimo.Codice, penultimo.Girone, _tessera, ct));
+
+            var righe = await attesaUltimo;
+
+            if (attesaPenultimo is not null)
+                _righePerTurno[penultimo!.Chiave] = await attesaPenultimo;
+
+            var righePrecedenti = penultimo is not null
+                && _righePerTurno.TryGetValue(penultimo.Chiave, out var prima) ? prima : null;
 
             Riuscito();
 
@@ -125,7 +208,7 @@ public sealed class PollingGenerale(FitabData dati) : PollingPrudente
             }
 
             _ultima = ClassificaGenerale.Calcola(_torneo, ultimo, righe, righePrecedenti);
-            _chiaveUltimoTurno = ultimo.Chiave;
+            _ultimoTurno = ultimo;
 
             // Bastano gli ultimi due turni: il resto e' storia che non riguardiamo.
             _righePerTurno[ultimo.Chiave] = righe;
@@ -157,6 +240,24 @@ public sealed class PollingGenerale(FitabData dati) : PollingPrudente
             Fallito();
             await Segnala(new EsitoGenerale(_ultima, DateTimeOffset.Now, Errore: Descrivi(ex)));
         }
+    }
+
+    /// <summary>Turni del girone seguito, nell'ordine in cui sono stati giocati.</summary>
+    private List<LiveTurno> Sequenza(IEnumerable<LiveTurno> turni) =>
+        turni.Where(t => string.IsNullOrEmpty(_girone) || t.Girone == _girone)
+             .InOrdineDiGioco()
+             .ToList();
+
+    /// <summary>
+    /// Marca la richiesta come osservata. Le classifiche partono prima di sapere
+    /// se serviranno: se il giro si interrompe su un'altra di esse, l'errore di
+    /// quella rimasta indietro non deve restare orfano.
+    /// </summary>
+    private static Task<T> Osservata<T>(Task<T> richiesta)
+    {
+        _ = richiesta.ContinueWith(static t => _ = t.Exception,
+                                   TaskContinuationOptions.OnlyOnFaulted);
+        return richiesta;
     }
 
     private Task Segnala(EsitoGenerale esito) =>

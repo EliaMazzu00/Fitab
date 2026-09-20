@@ -1,10 +1,16 @@
 @page "/live"
+@using Fitab.App.Servizi
 @inject FitabData Dati
+@inject SessioneUtente Utente
 @inject NavigationManager Nav
 
 @* Elenco tornei con risultati in diretta. I tornei di oggi vengono per primi.
-   Il dettaglio — la schermata con i turni a chip e l'aggiornamento automatico —
-   e' il passo successivo. *@
+
+   I filtri stanno qui e agiscono all'istante, come nel calendario: l'elenco che
+   il backend restituisce copre l'ultima settimana, quindi a meta' serata la
+   diretta di stasera finisce in mezzo a quelle gia' concluse. Il circolo si
+   scrive a mano e si puo' completare dall'elenco; il proprio sta in cima,
+   perche' e' quello che si cerca nove volte su dieci. *@
 
 <Intestazione Titolo="Classifiche live" />
 
@@ -26,42 +32,145 @@
         }
         else
         {
-            @if (_oggi.Count > 0)
-            {
-                <section class="sezione">
-                    <div class="sezione__testata">
-                        <span class="sezione__titolo">Oggi</span>
-                        <span class="testo-xs testo-tenue">@_oggi.Count</span>
+            <div class="ricerca">
+                <span class="ricerca__icona"><Icona Nome="luogo" Dimensione="20" /></span>
+                <input class="ricerca__input" type="search" placeholder="Filtra per circolo"
+                       value="@_testoCircolo" @oninput="SuTestoCircolo"
+                       @onfocus="@(() => _elencoAperto = true)"
+                       @onblur="@(() => _elencoAperto = false)" />
+
+                @* Il preventDefault sul mousedown tiene il fuoco nel campo: senza,
+                   il blur chiude l'elenco prima che il tocco diventi un click e
+                   scegliere un circolo non farebbe niente. *@
+                @if (_elencoAperto && Suggeriti.Count > 0)
+                {
+                    <div class="suggerimenti" @onmousedown:preventDefault>
+                        @foreach (var c in Suggeriti)
+                        {
+                            <button class="suggerimenti__voce"
+                                    @onclick="@(() => ScegliCircolo(c))">
+                                <span class="troncato">@c.Nome</span>
+                                @if (c.Mio)
+                                {
+                                    <span class="chip chip--primario">il tuo circolo</span>
+                                }
+                                <span class="testo-xs testo-tenue">@c.Quanti</span>
+                            </button>
+                        }
                     </div>
-                    @foreach (var t in _oggi)
-                    {
-                        @SchedaTorneo(t, true);
-                    }
-                </section>
+                }
+            </div>
+
+            <div class="filtri" style="display:flex;gap:var(--sp-2);overflow-x:auto;
+                                       padding-bottom:var(--sp-2);margin-bottom:var(--sp-2)">
+                @foreach (var q in Enum.GetValues<Quando>())
+                {
+                    <button class="chip @(_quando == q ? "chip--primario" : "")"
+                            style="min-height:36px;cursor:pointer"
+                            @onclick="@(() => FiltraPer(q))">@Etichetta(q)</button>
+                }
+            </div>
+
+            @if (FiltriAttivi > 0)
+            {
+                <div style="display:flex;align-items:center;justify-content:space-between;
+                            margin-bottom:var(--sp-3)">
+                    <span class="testo-xs testo-tenue">
+                        @_filtrati.Count tornei su @_live.Valore.Count
+                    </span>
+                    <button class="sezione__link" @onclick="AzzeraFiltri">Azzera filtri</button>
+                </div>
             }
 
-            @if (_altri.Count > 0)
+            @if (_filtrati.Count == 0)
             {
-                <section class="sezione">
-                    <div class="sezione__testata">
-                        <span class="sezione__titolo">Altre giornate</span>
-                        <span class="testo-xs testo-tenue">@_altri.Count</span>
-                    </div>
-                    @foreach (var t in _altri)
-                    {
-                        @SchedaTorneo(t, false);
-                    }
-                </section>
+                <StatoVuoto Titolo="Nessun torneo con questi filtri"
+                            Messaggio="Prova con un altro circolo, o rimetti tutte le giornate."
+                            NomeIcona="diretta" />
+            }
+            else
+            {
+                @if (_oggi.Count > 0)
+                {
+                    <section class="sezione">
+                        <div class="sezione__testata">
+                            <span class="sezione__titolo">Oggi</span>
+                            <span class="testo-xs testo-tenue">@_oggi.Count</span>
+                        </div>
+                        @foreach (var t in _oggi)
+                        {
+                            @SchedaTorneo(t, true);
+                        }
+                    </section>
+                }
+
+                @if (_altri.Count > 0)
+                {
+                    <section class="sezione">
+                        <div class="sezione__testata">
+                            <span class="sezione__titolo">Altre giornate</span>
+                            <span class="testo-xs testo-tenue">@_altri.Count</span>
+                        </div>
+                        @foreach (var t in _altri)
+                        {
+                            @SchedaTorneo(t, false);
+                        }
+                    </section>
+                }
             }
         }
     }
 </div>
 
 @code {
+    /// <summary>Giornate da mostrare. L'elenco del backend copre l'ultima settimana.</summary>
+    private enum Quando { Tutte, Oggi, Altre }
+
+    /// <summary>Un circolo che ha almeno una diretta in elenco.</summary>
+    private sealed record CircoloLive(int Id, string Nome, int Quanti, bool Mio);
+
     private Cached<IReadOnlyList<LiveTorneo>>? _live;
+    private IReadOnlyList<LiveTorneo> _filtrati = [];
     private IReadOnlyList<LiveTorneo> _oggi = [];
     private IReadOnlyList<LiveTorneo> _altri = [];
+    private IReadOnlyList<CircoloLive> _circoli = [];
     private bool _aggiornamentoInCorso;
+
+    private Quando _quando = Quando.Tutte;
+
+    /// <summary>Testo scritto nel campo circolo: filtra anche senza scegliere dall'elenco.</summary>
+    private string _testoCircolo = "";
+
+    /// <summary>Circolo scelto dall'elenco. Quando c'e', vince sul testo.</summary>
+    private int? _circoloScelto;
+
+    private bool _elencoAperto;
+
+    private int MioCircolo => Utente.Attuale?.IdCircolo ?? 0;
+
+    private int FiltriAttivi =>
+        (_quando == Quando.Tutte ? 0 : 1) +
+        (_circoloScelto is null && string.IsNullOrWhiteSpace(_testoCircolo) ? 0 : 1);
+
+    /// <summary>
+    /// Completamenti proposti sotto il campo. Il proprio circolo resta in testa
+    /// anche mentre si scrive, finche' il nome corrisponde.
+    /// </summary>
+    private IReadOnlyList<CircoloLive> Suggeriti
+    {
+        get
+        {
+            var testo = _testoCircolo.Trim();
+
+            IEnumerable<CircoloLive> query = _circoli;
+
+            if (testo.Length > 0)
+                query = query.Where(c =>
+                    c.Nome.Contains(testo, StringComparison.CurrentCultureIgnoreCase));
+
+            return query.Take(8).ToList();
+        }
+    }
 
     private RenderFragment SchedaTorneo(LiveTorneo t, bool inCorso) =>
         @<button class="scheda scheda--cliccabile @(inCorso ? "scheda--barrata" : "")"
@@ -105,7 +214,7 @@
             _live = await Dati.LiveTorneiAsync(null, c => InvokeAsync(() =>
             {
                 _live = c;
-                Dividi();
+                Filtra();
                 StateHasChanged();
             }), forza);
         }
@@ -116,20 +225,96 @@
         finally
         {
             _aggiornamentoInCorso = false;
-            Dividi();
+            Filtra();
         }
     }
 
-    private void Dividi()
+    private void Filtra()
     {
         var tutti = _live?.Valore ?? [];
-        _oggi = tutti.Where(t => t.EDiOggi)
-                     .OrderBy(t => t.Descrizione)
-                     .ToList();
-        _altri = tutti.Where(t => !t.EDiOggi)
-                      .OrderByDescending(t => t.Data ?? DateOnly.MinValue)
-                      .ToList();
+
+        // I circoli proposti sono solo quelli che hanno davvero una diretta in
+        // elenco: niente completamenti che portano a zero risultati.
+        _circoli = tutti
+            .Where(t => t.IdCircolo > 0 && !string.IsNullOrWhiteSpace(t.Circolo))
+            .GroupBy(t => t.IdCircolo)
+            .Select(g => new CircoloLive(g.Key, g.First().Circolo.Trim(), g.Count(),
+                                         g.Key == MioCircolo))
+            .OrderByDescending(c => c.Mio)
+            .ThenBy(c => c.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        IEnumerable<LiveTorneo> query = tutti;
+
+        if (_circoloScelto is { } id)
+        {
+            query = query.Where(t => t.IdCircolo == id);
+        }
+        else if (!string.IsNullOrWhiteSpace(_testoCircolo))
+        {
+            var testo = _testoCircolo.Trim();
+            query = query.Where(t =>
+                t.Circolo.Contains(testo, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        query = _quando switch
+        {
+            Quando.Oggi => query.Where(t => t.EDiOggi),
+            Quando.Altre => query.Where(t => !t.EDiOggi),
+            _ => query
+        };
+
+        _filtrati = query.ToList();
+
+        _oggi = _filtrati.Where(t => t.EDiOggi)
+                         .OrderBy(t => t.Descrizione)
+                         .ToList();
+        _altri = _filtrati.Where(t => !t.EDiOggi)
+                          .OrderByDescending(t => t.Data ?? DateOnly.MinValue)
+                          .ToList();
     }
+
+    private void SuTestoCircolo(ChangeEventArgs e)
+    {
+        _testoCircolo = e.Value?.ToString() ?? "";
+
+        // Chi ricomincia a scrivere sta cambiando idea: la scelta fatta prima
+        // dall'elenco non vale piu', altrimenti il campo direbbe una cosa e il
+        // filtro ne applicherebbe un'altra.
+        _circoloScelto = null;
+        _elencoAperto = true;
+        Filtra();
+    }
+
+    private void ScegliCircolo(CircoloLive c)
+    {
+        _circoloScelto = c.Id;
+        _testoCircolo = c.Nome;
+        _elencoAperto = false;
+        Filtra();
+    }
+
+    private void FiltraPer(Quando q)
+    {
+        _quando = q;
+        Filtra();
+    }
+
+    private void AzzeraFiltri()
+    {
+        _quando = Quando.Tutte;
+        _testoCircolo = "";
+        _circoloScelto = null;
+        _elencoAperto = false;
+        Filtra();
+    }
+
+    private static string Etichetta(Quando q) => q switch
+    {
+        Quando.Oggi => "Solo oggi",
+        Quando.Altre => "Altre giornate",
+        _ => "Tutte le giornate"
+    };
 
     private async Task Aggiorna()
     {

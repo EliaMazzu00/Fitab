@@ -29,7 +29,6 @@ public sealed record News
     public string? Allegato { get; init; }
 
     /// <summary>News in evidenza.</summary>
-    public bool InPrimoPiano { get; init; }
 
     public int IdCategoria { get; init; }
 

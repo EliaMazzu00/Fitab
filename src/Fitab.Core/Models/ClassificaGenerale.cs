@@ -8,9 +8,6 @@ public sealed record TavoloLive(int Numero, RigaGenerale Prima, RigaGenerale Sec
 {
     /// <summary>Vero se a questo tavolo gioca la coppia del tesserato loggato.</summary>
     public bool SonoQui => Prima.SonoIo || Seconda.SonoIo;
-
-    /// <summary>Distacco in VP fra le due coppie all'inizio del turno.</summary>
-    public int Distacco => Math.Abs(Prima.VP - Seconda.VP);
 }
 
 /// <summary>
@@ -39,9 +36,6 @@ public sealed record RigaGenerale
     /// <summary>VP conquistati nell'ultimo turno concluso, su 20 in palio al tavolo.</summary>
     public int VPUltimoTurno { get; init; }
 
-    /// <summary>Differenza punti dell'ultimo turno concluso.</summary>
-    public int MPUltimoTurno { get; init; }
-
     /// <summary>
     /// Posizioni guadagnate nell'ultimo turno concluso: positivo = risalita.
     /// </summary>
@@ -58,12 +52,6 @@ public sealed record RigaGenerale
     /// <summary>Tavolo del turno in corso, zero se gli abbinamenti non sono noti.</summary>
     public int TavoloInCorso { get; init; }
 
-    /// <summary>Coppia avversaria nel turno in corso, vuoto se gli abbinamenti non sono noti.</summary>
-    public string Avversario { get; init; } = "";
-
-    /// <summary>Posizione dell'avversario nel turno in corso, zero se non nota.</summary>
-    public int PosizioneAvversario { get; init; }
-
     /// <summary>
     /// Vero se nel turno in corso la coppia e' abbinata a quella fittizia: sta di fatto
     /// riposando, e la previsione di posizione per lei non ha il solito significato.
@@ -74,7 +62,6 @@ public sealed record RigaGenerale
     public bool EFittizia => Dati.EFittizia;
 
     public bool InRisalita => DeltaPosizione > 0;
-    public bool InDiscesa => DeltaPosizione < 0;
 }
 
 /// <summary>
@@ -116,14 +103,6 @@ public sealed record ClassificaGenerale
     public int TurniGiocati { get; init; }
 
     public int TurniTotali { get; init; }
-
-    /// <summary>
-    /// Stima dei turni giocati ricavata dai soli VP: ogni tavolo ne assegna venti, quindi
-    /// la somma vale <c>coppie x 10 x turni</c>. Serve da controprova, non da conteggio:
-    /// quando il torneo e' diviso in gironi la stima sbanda, perche' i gironi si formano
-    /// per fascia di classifica e i VP non sono distribuiti uniformemente fra loro.
-    /// </summary>
-    public double TurniGiocatiStimati { get; init; }
 
     /// <summary>
     /// Falso quando il numero di coppie e' cambiato fra l'ultimo turno e quello prima:
@@ -180,9 +159,6 @@ public sealed record ClassificaGenerale
     /// <summary>Righe da mostrare: la classifica senza la coppia segnaposto.</summary>
     public IEnumerable<RigaGenerale> RigheReali => Righe.Where(r => !r.EFittizia);
 
-    /// <summary>La riga del tesserato loggato, se sta giocando questo torneo.</summary>
-    public RigaGenerale? Mia => Righe.FirstOrDefault(r => r.SonoIo);
-
     /// <summary>Etichetta pronta per la UI, es. "dopo 7 turni su 11".</summary>
     public string Descrizione => !ConteggioTurniAttendibile
         ? $"aggiornata al {UltimoTurno.Descrizione}"
@@ -223,6 +199,11 @@ public sealed record ClassificaGenerale
                 .ToDictionary(g => g.Key, g => g.First())
             : null;
 
+        // Turni stimati dai soli VP: ogni tavolo ne assegna venti, quindi la somma
+        // vale coppie x 10 x turni. Non e' un conteggio, e' la controprova che
+        // usiamo piu' sotto: quando il torneo e' diviso in gironi la stima sbanda,
+        // perche' i gironi si formano per fascia di classifica e i VP non sono
+        // distribuiti uniformemente fra loro.
         var stima = ordinate.Count > 0 ? ordinate.Sum(r => r.VP) / (ordinate.Count * 10.0) : 0;
 
         // Gli abbinamenti del turno in corso li conosciamo solo se quel turno e' Danese.
@@ -240,12 +221,9 @@ public sealed record ClassificaGenerale
             {
                 Dati = r,
                 VPUltimoTurno = precedente is null ? 0 : r.VP - precedente.VP,
-                MPUltimoTurno = precedente is null ? 0 : r.MP - precedente.MP,
                 DeltaPosizione = precedente is null ? 0 : precedente.Posizione - r.Posizione,
                 RisultatoUltimoTurnoNoto = precedente is not null,
                 TavoloInCorso = avversario is null ? 0 : r.NumTavolo,
-                Avversario = avversario?.DescrizioneCoppia ?? "",
-                PosizioneAvversario = avversario?.Posizione ?? 0,
                 ARiposo = avversario?.EFittizia ?? false
             };
         }).ToList();
@@ -259,7 +237,6 @@ public sealed record ClassificaGenerale
             Girone = ultimoTurno.Girone,
             TurniGiocati = giocati,
             TurniTotali = torneo.TurniTotali,
-            TurniGiocatiStimati = stima,
             // Senza un turno precedente da confrontare ci si affida alla stima sui VP,
             // che e' attendibile finche' il girone e' unico.
             ConteggioTurniAttendibile = campoStabile

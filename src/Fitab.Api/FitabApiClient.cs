@@ -72,7 +72,6 @@ public sealed class FitabApiClient : IFitabApi
         Titolo = d.Titolo.Trim(),
         Messaggio = d.Messaggio?.Trim() ?? "",
         Allegato = Vuoto(d.Link) ? null : d.Link!.Trim(),
-        InPrimoPiano = d.Prima,
         IdCategoria = d.IdCategoria
     };
 
@@ -202,7 +201,6 @@ public sealed class FitabApiClient : IFitabApi
             Posizione = d.Posizione,
             CognomeNome = d.CognomeNome.Trim(),
             Tessera = d.TesseraTesserati?.Trim() ?? "",
-            CodiceTesserato = d.CodiceTesserati?.Trim() ?? "",
             Punti = d.Punti,
             IdCircolo = d.IdCircolo,
             Circolo = d.DescrizioneCircolo?.Trim() ?? "",
@@ -290,7 +288,6 @@ public sealed class FitabApiClient : IFitabApi
             NumeroTavoli = d.NumeroTavoli,
             TurniTotali = d.TurniTot,
             TurniMitchell = d.TurniMit,
-            TurniDanesi = d.TurniDan,
             SoloDanesi = d.SoloDanesi,
             TipoGioco = d.TipoGioco
         }).ToList();
